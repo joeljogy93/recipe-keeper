@@ -1,245 +1,285 @@
-// app.js - Recipe Keeper (plain script, no modules)
-// Drop this file into your site and make sure index.html includes it AFTER the DOM elements.
-// It expects these element IDs to exist in index.html:
-// - lock (wrapper div for the lock UI)
-// - lockInput (password input shown when unlocking)
-// - unlockBtn (button to attempt unlock)
-// - setPassBtn (button to open settings dialog)
-// - settingsDlg (dialog or div for settings; optional fallback uses settings box ids below)
-// - newPass (input inside settings to set a password)
-// - savePassBtn (save button inside settings)
-// - closeSettings (button to close settings)
-// If you have a function loadApp() defined (e.g. in drive.js) it will be called after unlocking.
+// app.js – Recipe Keeper (Password + Google Drive, single recipes.json)
 
-(function () {
-  // KEY used in localStorage
-  const STORAGE_KEY = "recipeKeeperPassword";
+// ===== Password (local, hashed) =====
+const LS_KEY = 'rk_pass_hash_v1';
+const sha = async s => {
+  const b = new TextEncoder().encode(s);
+  const h = await crypto.subtle.digest('SHA-256', b);
+  return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('');
+};
 
-  // Utility: safe query
-  function $(id) {
-    return document.getElementById(id);
-  }
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+const byId = id => document.getElementById(id);
 
-  // Read saved password (string or null)
-  function getSavedPassword() {
-    return localStorage.getItem(STORAGE_KEY);
-  }
+const UI = {
+  lock: byId('lock'),
+  lockInput: byId('lockInput'),
+  unlockBtn: byId('unlockBtn'),
+  setPassBtn: byId('setPassBtn'),
+  lockMsg: byId('lockMsg'),
 
-  // Save password (can be empty string to disable password)
-  function savePasswordToStorage(pw) {
-    try {
-      localStorage.setItem(STORAGE_KEY, pw === null ? "" : String(pw));
-      return true;
-    } catch (e) {
-      console.error("Failed to save password", e);
-      return false;
-    }
-  }
+  app: byId('app'),
+  darkToggle: byId('darkToggle'),
+  clientId: byId('clientId'),
+  apiKey: byId('apiKey'),
+  connectBtn: byId('connectBtn'),
+  signoutBtn: byId('signoutBtn'),
+  driveMsg: byId('driveMsg'),
 
-  // UI helpers
-  function showLock() {
-    const lock = $("lock");
-    if (lock) lock.classList.remove("hidden");
+  search: byId('search'),
+  newBtn: byId('newBtn'),
+  manageBtn: byId('manageBtn'),
+  settingsBtn: byId('settingsBtn'),
+  list: byId('list'),
+
+  editDlg: byId('editDlg'),
+  dlgTitle: byId('dlgTitle'),
+  rTitle: byId('rTitle'),
+  rCategory: byId('rCategory'),
+  rIngr: byId('rIngr'),
+  rNotes: byId('rNotes'),
+  rImage: byId('rImage'),
+  rImagePreview: byId('rImagePreview'),
+  saveBtn: byId('saveBtn'),
+  deleteBtn: byId('deleteBtn'),
+  closeBtn: byId('closeBtn'),
+  editMsg: byId('editMsg'),
+
+  catsDlg: byId('catsDlg'),
+  catsList: byId('catsList'),
+  newCat: byId('newCat'),
+  addCatBtn: byId('addCatBtn'),
+  closeCats: byId('closeCats'),
+
+  settingsDlg: byId('settingsDlg'),
+  newPass: byId('newPass'),
+  savePassBtn: byId('savePassBtn'),
+  closeSettings: byId('closeSettings'),
+  settingsMsg: byId('settingsMsg')
+};
+
+// App memory
+let data = { recipes: [], categories: [] };
+let editingIndex = -1;   // -1 new, else index in data.recipes
+
+// ===== Password flow =====
+async function tryUnlock() {
+  const hash = localStorage.getItem(LS_KEY);
+  if (!hash) { // first time → require set
+    UI.lockMsg.textContent = "No password set. Tap 'Set/Change password'.";
+    return false;
   }
-  function hideLock() {
-    const lock = $("lock");
-    if (lock) lock.classList.add("hidden");
+  const typed = UI.lockInput.value.trim();
+  const ok = (await sha(typed)) === hash;
+  if (!ok) {
+    UI.lockMsg.textContent = "Wrong password.";
+    return false;
   }
-  function showSettings() {
-    // If a dialog element exists, try that first
-    const dlg = $("settingsDlg");
-    if (dlg) {
-      dlg.style.display = "block";
-      // focus input if present
-      const np = $("newPass");
-      if (np) np.focus();
+  UI.lock.classList.add('hidden');
+  UI.app.classList.remove('hidden');
+  return true;
+}
+
+async function setPassword() {
+  UI.settingsDlg.showModal();
+}
+
+// ===== Drive connect =====
+UI.connectBtn?.addEventListener('click', async () => {
+  try {
+    const clientId = UI.clientId.value.trim();
+    const apiKey   = UI.apiKey.value.trim();
+    if (!clientId || !apiKey) {
+      UI.driveMsg.textContent = "Enter CLIENT_ID and API_KEY.";
       return;
     }
-    // fallback: try to find settings modal by id used in some versions
-    const fallback = $("setPassDialog");
-    if (fallback) fallback.style.display = "block";
+    await DriveAPI.driveInit(clientId, apiKey);
+    await DriveAPI.driveSignIn();
+    await DriveAPI.ensureStructure();
+    data = await DriveAPI.downloadRecipes();
+    if (!data.categories) data.categories = [];
+    renderCategories();
+    renderList();
+    UI.driveMsg.textContent = "Connected to Google Drive.";
+  } catch (e) {
+    UI.driveMsg.textContent = "Drive error: " + (e?.message || e);
   }
-  function hideSettings() {
-    const dlg = $("settingsDlg");
-    if (dlg) dlg.style.display = "none";
-    const fallback = $("setPassDialog");
-    if (fallback) fallback.style.display = "none";
+});
+
+UI.signoutBtn?.addEventListener('click', async () => {
+  await DriveAPI.driveSignOut();
+  UI.driveMsg.textContent = "Signed out.";
+});
+
+// ===== UI Events =====
+UI.unlockBtn?.addEventListener('click', async () => {
+  await tryUnlock();
+});
+UI.setPassBtn?.addEventListener('click', setPassword);
+
+UI.savePassBtn?.addEventListener('click', async () => {
+  const v = UI.newPass.value.trim();
+  if (!v) { UI.settingsMsg.textContent = "Enter a password"; return; }
+  const h = await sha(v);
+  localStorage.setItem(LS_KEY, h);
+  UI.newPass.value = "";
+  UI.settingsMsg.textContent = "Password saved (this device only).";
+});
+UI.closeSettings?.addEventListener('click', () => UI.settingsDlg.close());
+
+UI.darkToggle?.addEventListener('change', () => {
+  document.documentElement.setAttribute('data-theme', UI.darkToggle.checked ? 'dark' : 'light');
+  localStorage.setItem('rk_theme', UI.darkToggle.checked ? 'dark' : 'light');
+});
+
+UI.newBtn?.addEventListener('click', () => openEditor(-1));
+UI.closeBtn?.addEventListener('click', () => UI.editDlg.close());
+UI.manageBtn?.addEventListener('click', () => UI.catsDlg.showModal());
+UI.closeCats?.addEventListener('click', () => UI.catsDlg.close());
+UI.addCatBtn?.addEventListener('click', () => {
+  const name = UI.newCat.value.trim();
+  if (!name) return;
+  if (!data.categories.includes(name)) data.categories.push(name);
+  UI.newCat.value = "";
+  renderCategories();
+  persist(); // save categories change
+});
+UI.catsList?.addEventListener('click', (e) => {
+  if (e.target.tagName !== 'LI') return;
+  const name = e.target.dataset.name;
+  data.categories = data.categories.filter(c => c !== name);
+  renderCategories();
+  persist();
+});
+
+UI.search?.addEventListener('input', renderList);
+UI.rImage?.addEventListener('change', async () => {
+  const f = UI.rImage.files?.[0];
+  if (!f) return (UI.rImagePreview.classList.add('hidden'), UI.rImagePreview.src="");
+  UI.rImagePreview.src = URL.createObjectURL(f);
+  UI.rImagePreview.classList.remove('hidden');
+});
+
+UI.saveBtn?.addEventListener('click', saveRecipe);
+UI.deleteBtn?.addEventListener('click', deleteRecipe);
+
+// ===== Render =====
+function renderCategories() {
+  // populate select
+  UI.rCategory.innerHTML = "";
+  data.categories.forEach(c => {
+    const o = document.createElement('option'); o.value = o.textContent = c;
+    UI.rCategory.appendChild(o);
+  });
+  // show chips
+  UI.catsList.innerHTML = "";
+  data.categories.forEach(c => {
+    const li = document.createElement('li');
+    li.textContent = c; li.dataset.name = c;
+    UI.catsList.appendChild(li);
+  });
+}
+
+function renderList() {
+  const q = (UI.search.value || "").toLowerCase();
+  const items = (data.recipes || []).filter(r => {
+    const hay = `${r.title} ${r.category} ${r.ingredients?.join(' ')} ${r.notes}`.toLowerCase();
+    return hay.includes(q);
+  });
+  UI.list.innerHTML = "";
+  if (!items.length) { UI.list.innerHTML = `<div class="muted small">No recipes yet.</div>`; return; }
+  items.forEach((r, idx) => {
+    const card = document.createElement('div');
+    card.className = 'card-item';
+    const img = document.createElement('img');
+    img.src = r.imageUrl || '';
+    img.alt = r.title || 'photo';
+    card.appendChild(img);
+    const pad = document.createElement('div'); pad.className='pad';
+    pad.innerHTML = `<b>${r.title||''}</b><div class="muted small">${r.category||''}</div>`;
+    card.appendChild(pad);
+    card.addEventListener('click', () => openEditor(idx, r));
+    UI.list.appendChild(card);
+  });
+}
+
+function openEditor(index, r) {
+  editingIndex = index;
+  UI.dlgTitle.textContent = index === -1 ? "New recipe" : "Edit recipe";
+  UI.rTitle.value = r?.title || "";
+  UI.rCategory.value = r?.category || (data.categories[0] || "");
+  UI.rIngr.value = (r?.ingredients || []).join('\n');
+  UI.rNotes.value = r?.notes || "";
+  if (r?.imageUrl) { UI.rImagePreview.src = r.imageUrl; UI.rImagePreview.classList.remove('hidden'); }
+  else { UI.rImagePreview.classList.add('hidden'); UI.rImagePreview.src=""; }
+  UI.deleteBtn.style.display = (index === -1) ? 'none' : 'inline-block';
+  UI.editMsg.textContent = "";
+  UI.editDlg.showModal();
+}
+
+// ===== Persist (Drive) =====
+async function persist() {
+  try {
+    await DriveAPI.uploadRecipes(data);
+  } catch (e) {
+    console.error(e);
   }
+}
 
-  // Called after successful unlock to start the app
-  function startApp() {
-    // Hide the lock UI
-    hideLock();
-
-    // If drive/app loader exists, call it
-    if (typeof window.loadApp === "function") {
-      try {
-        window.loadApp();
-      } catch (e) {
-        console.error("loadApp() threw:", e);
-      }
-    } else {
-      // No loadApp found - you may want to implement showing the main UI here.
-      console.log("Unlocked — no loadApp() found. Implement main UI startup.");
+// ===== Save/Delete =====
+async function saveRecipe() {
+  try {
+    const rec = {
+      title: UI.rTitle.value.trim(),
+      category: UI.rCategory.value,
+      ingredients: UI.rIngr.value.split('\n').map(s=>s.trim()).filter(Boolean),
+      notes: UI.rNotes.value.trim(),
+      imageUrl: null
+    };
+    // Image upload (full resolution per your choice)
+    const file = UI.rImage.files?.[0];
+    if (file) {
+      UI.editMsg.textContent = "Uploading image…";
+      rec.imageUrl = await DriveAPI.uploadImage(file);
+    } else if (editingIndex !== -1) {
+      // keep existing
+      rec.imageUrl = data.recipes[editingIndex].imageUrl || null;
     }
+
+    if (editingIndex === -1) data.recipes.unshift(rec);
+    else data.recipes[editingIndex] = rec;
+
+    await persist();
+    UI.editMsg.textContent = "Saved.";
+    UI.editDlg.close();
+    renderList();
+  } catch (e) {
+    UI.editMsg.textContent = "Save failed: " + (e?.message || e);
   }
+}
 
-  // Attempt to unlock using the password typed in lockInput
-  function attemptUnlock() {
-    const input = $("lockInput");
-    const typed = input ? input.value : "";
+async function deleteRecipe() {
+  if (editingIndex === -1) return UI.editDlg.close();
+  if (!confirm('Delete this recipe?')) return;
+  data.recipes.splice(editingIndex, 1);
+  await persist();
+  UI.editDlg.close();
+  renderList();
+}
 
-    const saved = getSavedPassword();
+// ===== Boot =====
+(function boot(){
+  // theme
+  const t = localStorage.getItem('rk_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  UI.darkToggle.checked = (t === 'dark');
 
-    // If no password was set (empty string or null), allow immediate unlock
-    if (!saved || saved === "") {
-      // no password configured — allow open
-      startApp();
-      return;
-    }
+  // lock screen always shows first; user taps Unlock
+  UI.lock.classList.remove('hidden');
 
-    // Compare typed vs saved (exact match)
-    if (typed === saved) {
-      startApp();
-      return;
-    }
-
-    // Wrong password => show message
-    // Prefer an inline message area if present
-    const msg = $("lockMsg");
-    if (msg) {
-      msg.textContent = "Incorrect password. Try again.";
-      msg.style.color = "crimson";
-    } else {
-      alert("Incorrect password. Try again.");
-    }
+  // For a new device with no password, guide the user
+  if (!localStorage.getItem(LS_KEY)) {
+    UI.lockMsg.textContent = "No password set yet. Tap 'Set/Change password' to create one.";
   }
-
-  // Save password from settings input
-  function saveSettingsPassword() {
-    const np = $("newPass");
-    if (!np) {
-      alert("No password input found.");
-      return;
-    }
-    const pw = np.value || ""; // empty to disable
-    const ok = savePasswordToStorage(pw);
-    if (!ok) {
-      alert("Unable to save password (storage error).");
-      return;
-    }
-
-    // Show confirmation
-    const settingsMsg = $("settingsMsg");
-    if (settingsMsg) {
-      settingsMsg.textContent = pw ? "Password saved (this device only)." : "Password removed — no password required on this device.";
-      settingsMsg.style.color = "#666";
-    } else {
-      alert(pw ? "Password saved (on this device)." : "Password removed — site will open without password on this device.");
-    }
-
-    hideSettings();
-  }
-
-  // Wire up listeners (safe: only attaches if element exists)
-  function attachListeners() {
-    const unlockBtn = $("unlockBtn");
-    if (unlockBtn) {
-      unlockBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        attemptUnlock();
-      });
-    }
-
-    const lockInput = $("lockInput");
-    if (lockInput) {
-      // allow Enter to submit
-      lockInput.addEventListener("keydown", function (ev) {
-        if (ev.key === "Enter") {
-          attemptUnlock();
-        }
-      });
-    }
-
-    const setPassBtn = $("setPassBtn");
-    if (setPassBtn) {
-      setPassBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        showSettings();
-      });
-    }
-
-    const savePassBtn = $("savePassBtn");
-    if (savePassBtn) {
-      savePassBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        saveSettingsPassword();
-      });
-    }
-
-    const closeSettings = $("closeSettings");
-    if (closeSettings) {
-      closeSettings.addEventListener("click", function (e) {
-        e.preventDefault();
-        hideSettings();
-      });
-    }
-
-    // If settings dialog is used and user presses Enter inside it, save
-    const newPass = $("newPass");
-    if (newPass) {
-      newPass.addEventListener("keydown", function (ev) {
-        if (ev.key === "Enter") {
-          saveSettingsPassword();
-        }
-      });
-    }
-  }
-
-  // On load: decide whether to show lock (if password present or not)
-  function initLockUI() {
-    // Always show lock UI initially; the user can set password to empty to disable
-    showLock();
-
-    // Pre-fill lock input placeholder based on saved password
-    const saved = getSavedPassword();
-    const input = $("lockInput");
-    if (input) {
-      input.value = "";
-      if (!saved || saved === "") {
-        // no password set -> indicate to user they can unlock directly
-        input.placeholder = "No password set — click Unlock to open";
-      } else {
-        input.placeholder = "Enter password";
-      }
-    }
-
-    // Pre-fill settings newPass input with existing password (blank for security is fine)
-    const np = $("newPass");
-    if (np) {
-      np.value = saved || "";
-    }
-
-    // If there is no password set — you may optionally auto-unlock (but we keep the button UX)
-    // We will NOT auto-unlock to avoid surprising behavior. User can press Unlock.
-  }
-
-  // DOM ready
-  function boot() {
-    attachListeners();
-    initLockUI();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
-
-  // Expose minor helpers for debugging (optional)
-  window.__recipeKeeper = {
-    getSavedPassword,
-    savePasswordToStorage,
-    attemptUnlock,
-  };
 })();
