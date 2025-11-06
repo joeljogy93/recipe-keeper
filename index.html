@@ -5,15 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipe Keeper</title>
   <meta name="theme-color" content="#ffffff" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=3" />
   <!-- Google API Loader -->
   <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 <body>
-  <!-- Password Lock (local-only) -->
+  <!-- Password (local-only) -->
   <div id="lock" class="lock">
     <div class="lock-box card">
-      <h2>Unlock Recipe Keeper</h2>
+      <h2 id="lockTitle">Unlock Recipe Keeper</h2>
       <p class="muted small">This protects only this device. Recipes live in your Google Drive.</p>
       <input id="lockInput" type="password" placeholder="Enter password" />
       <div class="actions">
@@ -49,7 +49,7 @@
             <button id="signOutBtn" class="btn">Sign out</button>
           </div>
           <div id="driveMsg" class="muted small"></div>
-          <div class="muted small">Add your site URL to OAuth “Authorized JavaScript origins”.</div>
+          <div class="muted small">Add your Netlify URL to OAuth “Authorized JavaScript origins”.</div>
         </div>
         <div class="grow">
 <pre class="kbd">/RecipeKeeper/
@@ -132,7 +132,7 @@
   <dialog id="settingsDlg">
     <div class="dlg-h">Settings</div>
     <div class="dlg-b">
-      <div class="muted small">Password is <b>local to this device</b> (not synced). Clear browser data to remove it.</div>
+      <div class="muted small">Password is <b>local to this device</b> (not synced).</div>
       <label>New password</label>
       <input id="newPass" type="password" placeholder="Enter new password" />
       <div class="actions">
@@ -144,7 +144,7 @@
   </dialog>
 
   <!-- App script -->
-  <script src="app.js" defer></script>
+  <script src="app.js?v=3" defer></script>
 
   <!-- Debug: show JS errors if any -->
   <script>
