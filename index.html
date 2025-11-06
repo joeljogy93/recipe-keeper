@@ -1,0 +1,1208 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%232563eb'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25' /%3E%3C/svg%3E">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recipe Keeper</title>
+    
+    <!-- PWA Manifest and Theme -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#f1f5f9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Recipe Keeper">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: {"50":"#eff6ff","100":"#dbeafe","200":"#bfdbfe","300":"#93c5fd","400":"#60a5fa","500":"#3b82f6","600":"#2563eb","700":"#1d4ed8","800":"#1e40af","900":"#1e3a8a","950":"#172554"}
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #555; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
+        .prose img { margin-top: 1rem; margin-bottom: 1rem; border-radius: 0.5rem; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "uuid": "https://esm.sh/uuid@9.0.1"
+  }
+}
+</script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-100 dark:bg-gray-900 text-slate-800 dark:text-slate-200">
+    <div id="root"></div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
+    <script type="text/babel" data-type="module">
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { v4 as uuidv4 } from 'uuid';
+
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+// --- CONSTANTS ---
+const APP_NAME = 'RecipeKeeper';
+const FOLDER_NAME = 'RecipeKeeper';
+const IMAGES_FOLDER_NAME = 'images';
+const FILE_NAME = 'recipes.json';
+const LOCAL_STORAGE_KEY = 'recipeKeeperData';
+const GOOGLE_DRIVE_API_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DEFAULT_CATEGORIES = [
+    { id: uuidv4(), name: 'Kerala Non veg' },
+    { id: uuidv4(), name: 'Kerala veg' },
+    { id: uuidv4(), name: 'Dessert' },
+    { id: uuidv4(), name: 'Cakes' },
+    { id: uuidv4(), name: 'Filling' },
+    { id: uuidv4(), name: 'Cookies' },
+    { id: uuidv4(), name: 'Without egg dessert' },
+    { id: uuidv4(), name: 'Without egg cakes' },
+    { id: uuidv4(), name: 'Without egg cookies' },
+];
+
+// --- ICONS ---
+const PlusIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /> </svg> );
+const SearchIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /> </svg> );
+const SunIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-6.364-.386 1.591-1.591M3 12h2.25m.386-6.364 1.591 1.591M12 12a2.25 2.25 0 0 0-2.25 2.25 2.25 2.25 0 0 0 2.25 2.25 2.25 2.25 0 0 0 2.25-2.25A2.25 2.25 0 0 0 12 12Z" /> </svg> );
+const MoonIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /> </svg> );
+const EditIcon = ({ className = 'w-4 h-4' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" /> </svg> );
+const TrashIcon = ({ className = 'w-4 h-4' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /> </svg> );
+const LockClosedIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" /> </svg> );
+const EyeIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /> <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /> </svg> );
+const EyeSlashIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.243 4.243L6.228 6.228" /></svg> );
+const XMarkIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /> </svg> );
+const QuestionMarkCircleIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" /> </svg> );
+const Cog6ToothIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-1.007 1.113-1.113l.448-.112c.542-.136 1.113.232 1.249.774l.213.852c.115.461.52.822.997.94l.448.112c.542.136.91.671.774 1.249l-.213.852c-.115.461-.52.822-.997.94l-.448.112c-.542.136-1.113-.232-1.249-.774l-.213-.852a1.5 1.5 0 0 0-.997-.94l-.448-.112c-.542-.136-.91-.671-.774-1.249l.213-.852ZM15.634 12c.09-.542.56-1.007 1.113-1.113l.448-.112c.542-.136 1.113.232 1.249.774l.213.852c.115.461.52.822.997.94l.448.112c.542.136.91.671.774 1.249l-.213.852c-.115.461-.52.822-.997.94l-.448.112c-.542.136-1.113-.232-1.249-.774l-.213-.852a1.5 1.5 0 0 0-.997-.94l-.448-.112c-.542-.136-.91-.671-.774-1.249l.213-.852ZM6.366 12c.09-.542.56-1.007 1.113-1.113l.448-.112c.542-.136 1.113.232 1.249.774l.213.852c.115.461.52.822.997.94l.448.112c.542.136.91.671.774 1.249l-.213.852c-.115.461-.52.822-.997.94l-.448.112c-.542.136-1.113-.232-1.249-.774l-.213-.852a1.5 1.5 0 0 0-.997-.94l-.448-.112c-.542-.136-.91-.671-.774-1.249l.213-.852S6.366 12 6.366 12Zm-2.39 2.39c.09-.542.56-1.007 1.113-1.113l.448-.112c.542-.136 1.113.232 1.249.774l.213.852c.115.461.52.822.997.94l.448.112c.542.136.91.671.774 1.249l-.213.852c-.115.461-.52.822-.997.94l-.448.112c-.542.136-1.113-.232-1.249-.774l-.213-.852a1.5 1.5 0 0 0-.997-.94l-.448-.112c-.542-.136-.91-.671-.774-1.249l.213-.852Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" /></svg> );
+const ArrowUpOnSquareIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15M9 12l3 3m0 0 3-3m-3 3V2.25" /></svg> );
+const ArrowDownOnSquareIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg> );
+const ArrowPathIcon = ({ className = 'w-6 h-6' }) => ( <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}> <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 11.667 0l3.181-3.183m-11.667-11.667a8.25 8.25 0 0 0-11.667 0l-3.181 3.183" /> </svg> );
+
+
+// --- HOOK: useDriveSync ---
+const getInitialData = () => ({
+  recipes: [],
+  categories: DEFAULT_CATEGORIES,
+  meta: {
+    clientId: null,
+    apiKey: null,
+    drive: { folderId: null, fileId: null, imagesFolderId: null },
+    passHash: null,
+  },
+  updated: Date.now(),
+});
+
+const sha256 = async (str) => {
+  if (!str) return null;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+const useDriveSync = () => {
+  const [appData, setAppData] = useState(getInitialData);
+  const [status, setStatus] = useState('initializing');
+  const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [isGapiLoaded, setGapiLoaded] = useState(false);
+  const [isGisLoaded, setGisLoaded] = useState(false);
+  const [isLocked, setIsLocked] = useState(true);
+
+  const tokenClientRef = useRef(null);
+  const isSyncingRef = useRef(false);
+  const syncToDriveRef = useRef(null);
+  const queuedSyncDataRef = useRef(null);
+  const imageObjectURLCache = useRef(new Map());
+
+  const showToast = (message, type = 'info') => {
+    setToast({ id: Date.now(), message, type });
+  };
+  
+  const saveToLocalStorage = useCallback((data) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("Failed to save to local storage", e);
+      setError("Failed to save data locally.");
+    }
+  }, []);
+
+  const loadFromLocalStorage = useCallback(() => {
+    try {
+      const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        setAppData(parsed);
+        if (parsed.meta.passHash) {
+          setStatus('locked');
+          setIsLocked(true);
+        } else if (!parsed.meta.clientId || !parsed.meta.apiKey) {
+          setStatus('needs_credentials');
+          setIsLocked(false);
+        } else {
+          setStatus('authenticating');
+          setIsLocked(false);
+        }
+      } else {
+        setStatus('needs_credentials');
+        setIsLocked(false);
+      }
+    } catch (e) {
+      console.error("Failed to load from local storage", e);
+      setStatus('needs_credentials');
+      setIsLocked(false);
+    }
+  }, []);
+
+  const updateAppData = useCallback((updater, options = { sync: true, showToast: false }) => {
+    setAppData(prevAppData => {
+        const newData = updater(prevAppData);
+        const dataWithTimestamp = { ...newData, updated: Date.now() };
+        saveToLocalStorage(dataWithTimestamp);
+        
+        if (options.sync) {
+            queuedSyncDataRef.current = dataWithTimestamp;
+            setTimeout(() => {
+                if (syncToDriveRef.current && queuedSyncDataRef.current) {
+                    syncToDriveRef.current(queuedSyncDataRef.current);
+                    queuedSyncDataRef.current = null;
+                }
+            }, 1000); 
+        }
+        if (options.showToast) {
+            showToast('Changes saved!');
+        }
+        return dataWithTimestamp;
+    });
+  }, [saveToLocalStorage]);
+
+  // --- GOOGLE API INITIALIZATION ---
+  useEffect(() => {
+    const checkGoogleScripts = () => {
+      if (window.gapi) setGapiLoaded(true);
+      if (window.google?.accounts?.oauth2) setGisLoaded(true);
+    };
+    const interval = setInterval(checkGoogleScripts, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  const gapiInit = useCallback(() => {
+    if (isGapiLoaded && appData.meta.apiKey) {
+      window.gapi.load('client', () => {
+        window.gapi.client.init({
+          apiKey: appData.meta.apiKey,
+          discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+        }).catch(e => {
+          console.error("GAPI client init failed:", e);
+          setError(`API Key might be invalid. Error: ${e.details || e.message}`);
+          setStatus('error');
+        });
+      });
+    }
+  }, [isGapiLoaded, appData.meta.apiKey]);
+  
+  const gisInit = useCallback(() => {
+    if (isGisLoaded && appData.meta.clientId) {
+      try {
+        tokenClientRef.current = window.google.accounts.oauth2.initTokenClient({
+          client_id: appData.meta.clientId,
+          scope: GOOGLE_DRIVE_API_SCOPE,
+          callback: (tokenResponse) => {
+            if (tokenResponse.error) {
+              setError(`Authentication failed: ${tokenResponse.error_description}. Check Client ID and authorized origins in Google Cloud Console.`);
+              setStatus('error');
+            } else if (syncToDriveRef.current) {
+              syncToDriveRef.current();
+            }
+          },
+        });
+      } catch (e) {
+        setError(`Failed to initialize Google Sign-In. Is your Client ID correct?`);
+        setStatus('error');
+      }
+    }
+  }, [isGisLoaded, appData.meta.clientId]);
+  
+  const requestGisToken = useCallback(() => {
+    if (tokenClientRef.current) {
+      tokenClientRef.current.requestAccessToken({prompt: ''});
+    } else {
+      setError("Google authentication is not ready.");
+      setStatus('error');
+    }
+  }, []);
+
+  // --- DRIVE HELPER FUNCTIONS ---
+  const findItemByName = async (name, mimeType, parentId) => {
+    let query = `name = '${name}' and trashed = false and '${parentId}' in parents`;
+    if (mimeType) query += ` and mimeType = '${mimeType}'`;
+    const response = await window.gapi.client.drive.files.list({ q: query, fields: 'files(id, name)' });
+    return response.result.files?.[0];
+  };
+
+  const createFolder = async (name, parentId) => {
+    const metadata = { name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] };
+    const response = await window.gapi.client.drive.files.create({ resource: metadata, fields: 'id' });
+    return response.result.id;
+  };
+  
+  const createFile = async (name, content, parentId) => {
+      const metadata = { name, parents: [parentId], mimeType: 'application/json' };
+      const blob = new Blob([JSON.stringify(content, null, 2)], {type: 'application/json'});
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+      form.append('file', blob);
+
+      const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`, {
+          method: 'POST',
+          headers: new Headers({ 'Authorization': `Bearer ${window.gapi.client.getToken().access_token}` }),
+          body: form,
+      });
+      const data = await res.json();
+      return data.id;
+  };
+  
+  const updateFileContent = async (fileId, content) => {
+      const blob = new Blob([JSON.stringify(content, null, 2)], {type: 'application/json'});
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+          method: 'PATCH',
+          headers: new Headers({ 'Authorization': `Bearer ${window.gapi.client.getToken().access_token}` }),
+          body: blob,
+      });
+  };
+
+  // --- CORE SYNC LOGIC ---
+  syncToDriveRef.current = useCallback(async (dataToSync) => {
+    if (!navigator.onLine) { setStatus('offline'); return; }
+    if (isSyncingRef.current || !window.gapi?.client?.drive || status === 'needs_credentials' || isLocked) return;
+    
+    isSyncingRef.current = true;
+    setStatus('syncing');
+    const localData = dataToSync || appData;
+    
+    try {
+      if (!window.gapi.client.getToken()?.access_token) {
+        requestGisToken();
+        isSyncingRef.current = false;
+        return;
+      }
+
+      let { folderId, fileId, imagesFolderId } = localData.meta.drive;
+
+      if (!folderId) {
+        const foundFolder = await findItemByName(FOLDER_NAME, 'application/vnd.google-apps.folder', 'root');
+        folderId = foundFolder ? foundFolder.id : await createFolder(FOLDER_NAME, 'root');
+      }
+      if (!imagesFolderId) {
+        const foundImagesFolder = await findItemByName(IMAGES_FOLDER_NAME, 'application/vnd.google-apps.folder', folderId);
+        imagesFolderId = foundImagesFolder ? foundImagesFolder.id : await createFolder(IMAGES_FOLDER_NAME, folderId);
+      }
+      if (!fileId) {
+        const foundFile = await findItemByName(FILE_NAME, null, folderId);
+        fileId = foundFile?.id;
+      }
+      
+      updateAppData(d => ({ ...d, meta: { ...d.meta, drive: { folderId, fileId, imagesFolderId } } }), { sync: false });
+      
+      if (!fileId) { // First sync, file doesn't exist remotely
+        const newFileId = await createFile(FILE_NAME, localData, folderId);
+        updateAppData(d => ({ ...d, meta: { ...d.meta, drive: { ...d.meta.drive, fileId: newFileId } } }), { sync: false });
+        showToast('App data successfully synced to Google Drive for the first time!', 'success');
+      } else { // File exists, compare and sync
+        const response = await window.gapi.client.drive.files.get({ fileId, alt: 'media' });
+        const remoteData = response.result;
+        
+        if (localData.updated > remoteData.updated) {
+          await updateFileContent(fileId, localData);
+          showToast('Local changes synced to Google Drive.', 'success');
+        } else if (localData.updated < remoteData.updated) {
+          setAppData(remoteData);
+          saveToLocalStorage(remoteData);
+          showToast('Data updated from Google Drive.', 'success');
+        }
+      }
+      setStatus('synced');
+    } catch (e) {
+      console.error('Sync error:', e);
+      const errorMsg = e.result?.error?.message || e.message || 'An unknown error occurred.';
+      if (errorMsg.includes('Invalid Credentials') || errorMsg.includes('API key not valid')) {
+          setError('Authentication error. Your API Key or Client ID might be invalid, or you may need to re-authenticate.');
+          setStatus('error');
+      } else {
+          setError(`Sync failed: ${errorMsg}`);
+          setStatus('error');
+      }
+    } finally {
+      isSyncingRef.current = false;
+    }
+  }, [appData, status, isLocked, requestGisToken, saveToLocalStorage, updateAppData]);
+
+  // --- PUBLIC API OF THE HOOK ---
+  const setCredentials = (clientId, apiKey) => {
+    updateAppData(d => ({ ...d, meta: { ...d.meta, clientId, apiKey } }), { sync: false });
+    setStatus('authenticating');
+  };
+  
+  const unlock = async (password) => {
+    const hash = await sha256(password);
+    if (hash === appData.meta.passHash) {
+      setIsLocked(false);
+      setStatus('authenticating');
+      return true;
+    }
+    return false;
+  };
+  
+  const setPassword = async (password) => {
+    const passHash = await sha256(password);
+    updateAppData(d => ({...d, meta: {...d.meta, passHash}}), { sync: true, showToast: true });
+    showToast('Password set successfully!', 'success');
+  };
+
+  const changePassword = async (oldPassword, newPassword) => {
+    const oldHash = await sha256(oldPassword);
+    if (oldHash !== appData.meta.passHash) return false;
+    await setPassword(newPassword);
+    return true;
+  };
+
+  const removePassword = async (password) => {
+    const hash = await sha256(password);
+    if (hash !== appData.meta.passHash) return false;
+    updateAppData(d => ({...d, meta: {...d.meta, passHash: null}}), { sync: true, showToast: true });
+    showToast('Password removed.', 'success');
+    return true;
+  };
+
+  const logout = () => {
+    if (window.gapi?.client?.getToken()) {
+        window.google.accounts.oauth2.revoke(window.gapi.client.getToken().access_token, () => {});
+        window.gapi.client.setToken(null);
+    }
+    updateAppData(d => ({...d, meta: {...d.meta, clientId: null, apiKey: null, drive: {}}}), {sync: false});
+    setStatus('needs_credentials');
+    showToast('Signed out from Google Drive.');
+  };
+  
+  const uploadImage = async (file) => {
+    if (!appData.meta.drive.imagesFolderId) {
+        showToast('Image folder not found in Drive. Sync first.', 'error');
+        return null;
+    }
+    const metadata = { name: file.name, parents: [appData.meta.drive.imagesFolderId], mimeType: file.type };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', file);
+    try {
+        const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink`, {
+            method: 'POST',
+            headers: new Headers({ 'Authorization': `Bearer ${window.gapi.client.getToken().access_token}` }),
+            body: form,
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return await res.json();
+    } catch(e) {
+        console.error('Image upload failed', e);
+        showToast('Image upload failed.', 'error');
+        return null;
+    }
+  };
+
+  const deleteFile = async (fileId) => {
+    try {
+        await window.gapi.client.drive.files.delete({ fileId });
+    } catch (e) {
+        console.error(`Failed to delete file ${fileId}`, e);
+        // Don't show toast for this, as it might be noisy if file is already gone
+    }
+  };
+
+  const getImageUrl = useCallback(async (fileId) => {
+      if (imageObjectURLCache.current.has(fileId)) {
+          return imageObjectURLCache.current.get(fileId);
+      }
+      if (!window.gapi?.client?.drive || !window.gapi.client.getToken()?.access_token) return null;
+      try {
+          const response = await window.gapi.client.drive.files.get({ fileId, alt: 'media' });
+          const blob = new Blob([response.body], { type: response.headers['Content-Type'] });
+          const url = URL.createObjectURL(blob);
+          imageObjectURLCache.current.set(fileId, url);
+          return url;
+      } catch (e) {
+          console.error("Failed to fetch image", e);
+          return null; // or a placeholder
+      }
+  }, []);
+
+  const resetApp = () => {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    imageObjectURLCache.current.forEach(url => URL.revokeObjectURL(url));
+    imageObjectURLCache.current.clear();
+    loadFromLocalStorage();
+    showToast('Application has been reset.', 'success');
+  };
+
+  // --- EFFECT FOR LOADING & SYNCING ---
+  useEffect(() => {
+    loadFromLocalStorage();
+  }, [loadFromLocalStorage]);
+  
+  useEffect(() => {
+    if(status === 'authenticating') {
+      gapiInit();
+      gisInit();
+    }
+  }, [status, gapiInit, gisInit]);
+  
+  useEffect(() => {
+    if (isGapiLoaded && isGisLoaded && status === 'authenticating') {
+      syncToDriveRef.current();
+    }
+  }, [isGapiLoaded, isGisLoaded, status]);
+
+  useEffect(() => {
+    const handleOnline = () => syncToDriveRef.current();
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+  
+  return { appData, status, error, toast, isLocked, updateAppData, setCredentials, unlock, setPassword, changePassword, removePassword, logout, uploadImage, deleteFile, getImageUrl, resetApp, showToast, syncNow: syncToDriveRef.current };
+};
+
+// --- GENERIC COMPONENTS ---
+const Modal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <header className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h2 className="text-xl font-semibold">{title}</h2>
+                    <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><XMarkIcon /></button>
+                </header>
+                <main className="p-6 overflow-y-auto custom-scrollbar flex-grow">{children}</main>
+            </div>
+        </div>
+    );
+};
+
+const Toast = ({ message, type, onDismiss }) => {
+    const [visible, setVisible] = useState(false);
+    useEffect(() => {
+        setVisible(true);
+        const timer = setTimeout(() => {
+            setVisible(false);
+            setTimeout(onDismiss, 300);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    const colors = {
+        info: 'bg-blue-500',
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+    };
+
+    return (
+        <div className={`fixed bottom-5 right-5 text-white px-4 py-2 rounded-lg shadow-lg transition-transform duration-300 ${visible ? 'translate-x-0' : 'translate-x-full'} ${colors[type]}`}>
+            {message}
+        </div>
+    );
+};
+
+// --- APP-SPECIFIC COMPONENTS ---
+
+const DriveImage = ({ fileId, getImageUrl, alt, className }) => {
+    const [imageUrl, setImageUrl] = useState(null);
+    useEffect(() => {
+        let isMounted = true;
+        let objectUrl = null;
+        if (fileId) {
+            getImageUrl(fileId).then(url => {
+                if (isMounted && url) {
+                    objectUrl = url;
+                    setImageUrl(url);
+                }
+            });
+        }
+        return () => {
+            isMounted = false;
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [fileId, getImageUrl]);
+
+    if (!imageUrl) {
+        return <div className={`animate-pulse bg-gray-300 dark:bg-gray-600 ${className}`}></div>;
+    }
+    return <img src={imageUrl} alt={alt} className={className} />;
+};
+
+const HelpModal = ({ isOpen, onClose }) => (
+    <Modal isOpen={isOpen} onClose={onClose} title="Help & Instructions">
+        <div className="prose prose-slate dark:prose-invert max-w-none">
+            <h3>Welcome to Recipe Keeper!</h3>
+            <p>This is your personal, private recipe book that syncs with your own Google Drive.</p>
+
+            <h4>1. Google Drive Setup (First Time)</h4>
+            <p>To use Google Drive sync, you need to create your own API credentials. This ensures your data is only accessible by you.</p>
+            <ol>
+                <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a>.</li>
+                <li>Create a new project (e.g., "My Recipe App").</li>
+                <li>In the search bar, find and enable the "Google Drive API".</li>
+                <li>Go to "Credentials" in the left-hand menu.</li>
+                <li>Click "+ CREATE CREDENTIALS" and choose "API key". Copy this key.</li>
+                <li>Click "+ CREATE CREDENTIALS" again and choose "OAuth client ID".
+                    <ul>
+                        <li>Select "Web application" as the type.</li>
+                        <li>Under "Authorized JavaScript origins", add the URL where you are hosting this app (e.g., <code>https://your-netlify-site.netlify.app</code> or <code>http://localhost:8000</code> for local testing).</li>
+                        <li>Click "Create" and copy the "Client ID".</li>
+                    </ul>
+                </li>
+                <li>Paste the Client ID and API Key into the setup form in the app and click "Connect".</li>
+            </ol>
+            
+            <h4>2. How to Deploy</h4>
+            <p>This is a static web app. You can host it for free on services like Netlify, Vercel, or GitHub Pages.</p>
+            <p><strong>Easiest Method (Netlify):</strong></p>
+            <ol>
+                <li>Download the <code>index.html</code>, <code>sw.js</code>, and <code>manifest.webmanifest</code> files.</li>
+                <li>Go to <a href="https://app.netlify.com/drop" target="_blank" rel="noopener noreferrer">Netlify Drop</a>.</li>
+                <li>Drag and drop the folder containing these files into the upload area.</li>
+                <li>Netlify will give you a public URL. <strong>Remember to add this URL to your "Authorized JavaScript origins" in the Google Cloud Console!</strong></li>
+            </ol>
+            
+            <h4>3. Add to Home Screen (PWA)</h4>
+            <p>For an app-like experience:</p>
+            <ul>
+                <li><strong>On iOS (Safari):</strong> Tap the "Share" button, then scroll down and tap "Add to Home Screen".</li>
+                <li><strong>On Android (Chrome):</strong> Tap the three-dot menu, then tap "Install app" or "Add to Home screen".</li>
+            </ul>
+
+            <h4>4. Password System</h4>
+            <ul>
+                <li>The password is <strong>local only</strong>. It is never synced to Google Drive.</li>
+                <li>It's used to lock the app on your device.</li>
+                <li><strong>If you forget your password:</strong> You must clear your browser's site data for this app. Open your browser's developer tools, go to the "Application" tab, find "Local Storage", right-click the entry for this site, and clear it. This will reset the entire app, and you will need to reconnect to Google Drive to pull your data back down.</li>
+            </ul>
+
+            <h4>5. Backup (Export / Import)</h4>
+            <p>You can create a full backup of your data as a JSON file.</p>
+            <ul>
+                <li><strong>Export:</strong> Go to Settings -> Data -> Export Data. A <code>recipes.json</code> file will be downloaded. Keep it safe!</li>
+                <li><strong>Import:</strong> Go to Settings -> Data -> Import Data. Select a previously exported JSON file. This will overwrite all current data in the app.</li>
+            </ul>
+
+            <h4>6. Sync Conflict Handling</h4>
+            <p>The app uses a simple "last write wins" strategy. When you open the app, it compares the timestamp of your local data with the data in Google Drive.
+            If the Drive version is newer, your local data is overwritten. If your local version is newer (e.g., you made changes while offline), your changes are pushed to Drive. It's best to ensure one person uses the app at a time to avoid conflicts.</p>
+
+            <h4>7. Image Deletion</h4>
+            <p>When you delete a recipe, the app will also attempt to delete any associated images from your Google Drive to keep things tidy.</p>
+        </div>
+    </Modal>
+);
+
+const SettingsModal = ({ isOpen, onClose, appData, updateAppData, changePassword, removePassword, resetApp }) => {
+    const [activeTab, setActiveTab] = useState('categories');
+    const [categoryName, setCategoryName] = useState('');
+    const [editingCategory, setEditingCategory] = useState(null);
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passError, setPassError] = useState('');
+    const [passSuccess, setPassSuccess] = useState('');
+
+    const handleAddCategory = () => {
+        if (!categoryName.trim()) return;
+        if (editingCategory) {
+            updateAppData(d => ({ ...d, categories: d.categories.map(c => c.id === editingCategory.id ? { ...c, name: categoryName } : c) }), {sync: true});
+            setEditingCategory(null);
+        } else {
+            updateAppData(d => ({ ...d, categories: [...d.categories, { id: uuidv4(), name: categoryName }] }), {sync: true});
+        }
+        setCategoryName('');
+    };
+
+    const handleDeleteCategory = (catId) => {
+        const isUsed = appData.recipes.some(r => r.category === catId);
+        if (isUsed) {
+            alert("Cannot delete a category that is currently in use.");
+            return;
+        }
+        if (confirm("Are you sure you want to delete this category?")) {
+            updateAppData(d => ({ ...d, categories: d.categories.filter(c => c.id !== catId) }), {sync: true});
+        }
+    };
+    
+    const handleEditCategory = (cat) => {
+        setEditingCategory(cat);
+        setCategoryName(cat.name);
+    };
+
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        setPassError(''); setPassSuccess('');
+        if (newPassword !== confirmPassword) {
+            setPassError("New passwords don't match.");
+            return;
+        }
+        const success = await changePassword(oldPassword, newPassword);
+        if(success) {
+            setPassSuccess('Password changed successfully!');
+            setOldPassword(''); setNewPassword(''); setConfirmPassword('');
+        } else {
+            setPassError('Current password was incorrect.');
+        }
+    };
+    
+    const handlePasswordRemove = async () => {
+        setPassError(''); setPassSuccess('');
+        if (!confirm('Are you sure you want to remove the password?')) return;
+        
+        const success = await removePassword(oldPassword);
+        if(success) {
+            setPassSuccess('Password removed successfully!');
+            setOldPassword(''); setNewPassword(''); setConfirmPassword('');
+        } else {
+            setPassError('Password was incorrect.');
+        }
+    };
+    
+    const handleExport = () => {
+        const dataStr = JSON.stringify(appData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'recipes.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+    
+    const handleImport = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                // Basic validation
+                if (importedData.recipes && importedData.categories && importedData.meta) {
+                    if (confirm("This will overwrite all current data. Are you sure?")) {
+                       updateAppData(() => importedData, {sync: true});
+                       onClose();
+                    }
+                } else {
+                    alert("Invalid backup file format.");
+                }
+            } catch (err) {
+                alert("Failed to read or parse the backup file.");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = null; // Reset file input
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Settings">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+                <button onClick={() => setActiveTab('categories')} className={`px-4 py-2 ${activeTab === 'categories' ? 'border-b-2 border-primary-500' : ''}`}>Categories</button>
+                {appData.meta.passHash && <button onClick={() => setActiveTab('security')} className={`px-4 py-2 ${activeTab === 'security' ? 'border-b-2 border-primary-500' : ''}`}>Security</button>}
+                <button onClick={() => setActiveTab('data')} className={`px-4 py-2 ${activeTab === 'data' ? 'border-b-2 border-primary-500' : ''}`}>Data</button>
+            </div>
+            
+            {activeTab === 'categories' && <div>
+                <h4 className="font-semibold mb-2">Manage Categories</h4>
+                <div className="flex gap-2 mb-4">
+                    <input type="text" value={categoryName} onChange={e => setCategoryName(e.target.value)} className="w-full bg-slate-200 dark:bg-gray-700 p-2 rounded" placeholder="New category name" />
+                    <button onClick={handleAddCategory} className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700">{editingCategory ? 'Update' : 'Add'}</button>
+                    {editingCategory && <button onClick={() => { setEditingCategory(null); setCategoryName(''); }} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">Cancel</button>}
+                </div>
+                <ul className="space-y-2">
+                    {appData.categories.map(cat => (
+                        <li key={cat.id} className="flex justify-between items-center p-2 bg-slate-100 dark:bg-gray-700 rounded">
+                            <span>{cat.name}</span>
+                            <div className="flex gap-2">
+                                <button onClick={() => handleEditCategory(cat)} className="text-primary-500 hover:text-primary-700"><EditIcon /></button>
+                                <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-500 hover:text-red-700"><TrashIcon /></button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>}
+            
+            {activeTab === 'security' && <div>
+                <h4 className="font-semibold mb-2">Change Password</h4>
+                <form onSubmit={handlePasswordChange} className="space-y-3">
+                    <input type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} className="w-full bg-slate-200 dark:bg-gray-700 p-2 rounded" placeholder="Current password" required />
+                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full bg-slate-200 dark:bg-gray-700 p-2 rounded" placeholder="New password" required />
+                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full bg-slate-200 dark:bg-gray-700 p-2 rounded" placeholder="Confirm new password" required />
+                    {passError && <p className="text-red-500 text-sm">{passError}</p>}
+                    {passSuccess && <p className="text-green-500 text-sm">{passSuccess}</p>}
+                    <div className="flex gap-2">
+                      <button type="submit" className="bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700">Change Password</button>
+                      <button type="button" onClick={handlePasswordRemove} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Remove Password</button>
+                    </div>
+                </form>
+            </div>}
+
+            {activeTab === 'data' && <div>
+                <h4 className="font-semibold mb-2">Data Management</h4>
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                         <button onClick={handleExport} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"><ArrowDownOnSquareIcon className="w-5 h-5"/> Export Data</button>
+                         <p className="text-sm text-gray-500 dark:text-gray-400">Save all your recipes to a JSON file.</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <label className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 cursor-pointer flex items-center gap-2">
+                            <ArrowUpOnSquareIcon className="w-5 h-5"/> Import Data
+                            <input type="file" className="hidden" accept=".json" onChange={handleImport} />
+                        </label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Import recipes from a backup file. This will overwrite current data.</p>
+                    </div>
+                    <div className="border-t border-red-500/20 pt-4 mt-4">
+                        <h5 className="font-semibold text-red-500">Danger Zone</h5>
+                        <div className="flex items-center gap-4 mt-2">
+                             <button onClick={() => { if(confirm("Are you sure you want to reset the entire app? All local data will be erased.")) resetApp()}} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Reset App</button>
+                             <p className="text-sm text-gray-500 dark:text-gray-400">Erase all local data and settings. Data on Google Drive will not be affected.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>}
+        </Modal>
+    );
+};
+
+
+const RecipeEditor = ({ recipe, categories, onSave, onCancel, uploadImage, deleteFile, showToast }) => {
+    const [editedRecipe, setEditedRecipe] = useState(recipe);
+    const [showPreview, setShowPreview] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+
+    useEffect(() => {
+        setEditedRecipe(recipe);
+    }, [recipe]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setEditedRecipe(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setIsUploading(true);
+        const uploadedImage = await uploadImage(file);
+        setIsUploading(false);
+        if (uploadedImage) {
+            setEditedRecipe(prev => ({ ...prev, images: [...(prev.images || []), uploadedImage] }));
+        }
+        e.target.value = null; // Reset file input
+    };
+    
+    const handleImageDelete = async (fileIdToDelete) => {
+        if (!confirm('Are you sure you want to remove this image? It will be deleted from Google Drive.')) return;
+        
+        await deleteFile(fileIdToDelete); // Delete from drive
+        setEditedRecipe(prev => ({
+            ...prev,
+            images: prev.images.filter(img => img.id !== fileIdToDelete)
+        }));
+        showToast('Image removed.', 'success');
+    };
+
+    const handleSave = () => {
+        onSave(editedRecipe);
+    };
+    
+    const renderedMarkdown = (text) => ({ __html: marked.parse(text || '') });
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-30 flex justify-end">
+            <div className="bg-slate-50 dark:bg-gray-800 w-full max-w-3xl h-full flex flex-col shadow-2xl">
+                <header className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
+                    <h2 className="text-xl font-semibold">{recipe.id ? 'Edit Recipe' : 'New Recipe'}</h2>
+                    <div>
+                        <button onClick={() => setShowPreview(!showPreview)} className="mr-4 px-3 py-1 border rounded">{showPreview ? 'Edit' : 'Preview'}</button>
+                        <button onClick={handleSave} className="bg-primary-600 text-white px-4 py-2 rounded mr-2">Save</button>
+                        <button onClick={onCancel} className="bg-gray-200 dark:bg-gray-600 px-4 py-2 rounded">Cancel</button>
+                    </div>
+                </header>
+                <main className="flex-grow overflow-y-auto custom-scrollbar p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Editor View */}
+                    <div className={`${showPreview ? 'hidden' : ''} md:!block space-y-4`}>
+                        <input type="text" name="title" value={editedRecipe.title} onChange={handleChange} placeholder="Recipe Title" className="w-full text-lg p-2 bg-white dark:bg-gray-700 border rounded"/>
+                        <select name="category" value={editedRecipe.category} onChange={handleChange} className="w-full p-2 bg-white dark:bg-gray-700 border rounded">
+                            <option value="">Select a category</option>
+                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                        </select>
+                        <input type="text" name="prep" value={editedRecipe.prep} onChange={handleChange} placeholder="Prep/Cook Time (e.g., 30 mins)" className="w-full p-2 bg-white dark:bg-gray-700 border rounded"/>
+                        <textarea name="ingredients" value={editedRecipe.ingredients} onChange={handleChange} placeholder="Ingredients (one per line)" rows="8" className="w-full p-2 bg-white dark:bg-gray-700 border rounded font-mono text-sm"></textarea>
+                        <textarea name="steps" value={editedRecipe.steps} onChange={handleChange} placeholder="Steps (Markdown supported)" rows="10" className="w-full p-2 bg-white dark:bg-gray-700 border rounded font-mono text-sm"></textarea>
+                        <textarea name="notes" value={editedRecipe.notes} onChange={handleChange} placeholder="Notes" rows="4" className="w-full p-2 bg-white dark:bg-gray-700 border rounded"></textarea>
+                        <div>
+                            <label className="block mb-2 font-semibold">Images</label>
+                            <div className="grid grid-cols-3 gap-2 mb-2">
+                                {editedRecipe.images?.map(img => (
+                                    <div key={img.id} className="relative group">
+                                        <img src={img.webContentLink?.replace('export=download', 'export=view')} className="w-full h-24 object-cover rounded" alt={img.name}/>
+                                        <button onClick={() => handleImageDelete(img.id)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <TrashIcon className="w-3 h-3"/>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                            <input type="file" accept="image/*" onChange={handleImageUpload} disabled={isUploading} className="text-sm" />
+                            {isUploading && <p className="text-sm text-primary-500">Uploading...</p>}
+                        </div>
+                    </div>
+                    {/* Preview View */}
+                    <div className={`${!showPreview ? 'hidden' : ''} md:!block prose prose-slate dark:prose-invert max-w-none`}>
+                         <h1>{editedRecipe.title || 'Recipe Title'}</h1>
+                         <p><strong>Time:</strong> {editedRecipe.prep}</p>
+                         <h3>Ingredients</h3>
+                         <div dangerouslySetInnerHTML={renderedMarkdown(editedRecipe.ingredients)} />
+                         <h3>Steps</h3>
+                         <div dangerouslySetInnerHTML={renderedMarkdown(editedRecipe.steps)} />
+                         {editedRecipe.notes && <><h3>Notes</h3><p>{editedRecipe.notes}</p></>}
+                    </div>
+                </main>
+            </div>
+        </div>
+    );
+};
+
+const LockScreen = ({ onUnlock, error }) => {
+    const [password, setPassword] = useState('');
+    const [isUnlocking, setIsUnlocking] = useState(false);
+    const [unlockError, setUnlockError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsUnlocking(true);
+        setUnlockError('');
+        const success = await onUnlock(password);
+        if (!success) {
+            setUnlockError('Incorrect password.');
+            setIsUnlocking(false);
+        }
+    };
+    
+    return (
+        <div className="fixed inset-0 bg-slate-100 dark:bg-gray-900 flex items-center justify-center z-50">
+            <div className="w-full max-w-sm p-8 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
+                <div className="text-center mb-6">
+                    <h1 className="text-2xl font-bold">Recipe Keeper</h1>
+                    <p className="text-slate-500 dark:text-slate-400">App is locked</p>
+                </div>
+                {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
+                <form onSubmit={handleSubmit}>
+                    <div className="relative mb-4">
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full p-3 pr-10 border rounded bg-slate-50 dark:bg-gray-700 dark:border-gray-600"
+                            placeholder="Enter password"
+                            required
+                            autoFocus
+                        />
+                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500">
+                             {showPassword ? <EyeSlashIcon className="w-5 h-5"/> : <EyeIcon className="w-5 h-5"/>}
+                         </button>
+                    </div>
+                    {unlockError && <p className="text-red-500 text-sm mb-4">{unlockError}</p>}
+                    <button type="submit" disabled={isUnlocking} className="w-full bg-primary-600 text-white p-3 rounded hover:bg-primary-700 disabled:bg-primary-400">
+                        {isUnlocking ? 'Unlocking...' : 'Unlock'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+const DriveSetup = ({ onConnect, error, showToast }) => {
+    const [clientId, setClientId] = useState('');
+    const [apiKey, setApiKey] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (password && password !== confirmPassword) {
+            showToast("Passwords do not match.", "error");
+            return;
+        }
+        onConnect(clientId, apiKey, password || null);
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-lg p-8 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
+                <h1 className="text-2xl font-bold text-center mb-2">Welcome to Recipe Keeper</h1>
+                <p className="text-center text-slate-500 dark:text-slate-400 mb-6">Connect to Google Drive to get started.</p>
+                {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">{error}</div>}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block mb-1 font-semibold">Google Client ID</label>
+                        <input type="text" value={clientId} onChange={e => setClientId(e.target.value)} className="w-full p-2 border rounded bg-slate-50 dark:bg-gray-700 dark:border-gray-600" required />
+                    </div>
+                    <div>
+                        <label className="block mb-1 font-semibold">Google API Key</label>
+                        <input type="text" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full p-2 border rounded bg-slate-50 dark:bg-gray-700 dark:border-gray-600" required />
+                    </div>
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <h3 className="font-semibold mb-2">Optional: Set a Local Password</h3>
+                       <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">This password locks the app on this device only. It is not stored in Google Drive.</p>
+                        <div className="relative mb-4">
+                           <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter password (optional)" className="w-full p-2 pr-10 border rounded bg-slate-50 dark:bg-gray-700 dark:border-gray-600" />
+                            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500">
+                                 {showPassword ? <EyeSlashIcon className="w-5 h-5"/> : <EyeIcon className="w-5 h-5"/>}
+                             </button>
+                        </div>
+                        <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm password" className="w-full p-2 border rounded bg-slate-50 dark:bg-gray-700 dark:border-gray-600" />
+                    </div>
+                    <button type="submit" className="w-full bg-primary-600 text-white p-3 rounded hover:bg-primary-700">Connect to Google Drive</button>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+
+const RecipeCard = ({ recipe, category, onEdit, onDelete, getImageUrl }) => (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden flex flex-col">
+        {recipe.images && recipe.images.length > 0 ? (
+             <DriveImage fileId={recipe.images[0].id} getImageUrl={getImageUrl} alt={recipe.title} className="w-full h-40 object-cover" />
+        ) : (
+            <div className="w-full h-40 bg-slate-200 dark:bg-gray-700 flex items-center justify-center">
+                <span className="text-slate-400 text-sm">No Image</span>
+            </div>
+        )}
+        <div className="p-4 flex-grow flex flex-col">
+            <h3 className="text-lg font-semibold mb-1">{recipe.title}</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">{category?.name || 'Uncategorized'} &bull; {new Date(recipe.updated).toLocaleDateString()}</p>
+            <p className="text-sm line-clamp-3 flex-grow">{recipe.ingredients}</p>
+        </div>
+        <div className="p-2 bg-slate-50 dark:bg-gray-800/50 border-t dark:border-gray-700 flex justify-end gap-2">
+            <button onClick={onEdit} className="p-2 text-slate-600 dark:text-slate-300 hover:text-primary-600 dark:hover:text-primary-400"><EditIcon /></button>
+            <button onClick={onDelete} className="p-2 text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400"><TrashIcon /></button>
+        </div>
+    </div>
+);
+
+
+// --- MAIN APP COMPONENT ---
+function App() {
+    const { appData, status, error, toast, isLocked, updateAppData, setCredentials, unlock, setPassword, changePassword, removePassword, logout, uploadImage, deleteFile, getImageUrl, resetApp, showToast, syncNow } = useDriveSync();
+    
+    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'system');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeCategory, setActiveCategory] = useState('all');
+    const [editingRecipe, setEditingRecipe] = useState(null);
+    const [isHelpOpen, setHelpOpen] = useState(false);
+    const [isSettingsOpen, setSettingsOpen] = useState(false);
+    const [activeToast, setActiveToast] = useState(null);
+    
+    useEffect(() => {
+        if (toast) {
+            setActiveToast(toast);
+        }
+    }, [toast]);
+    
+    useEffect(() => {
+        const root = window.document.documentElement;
+        const isDark = (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+        root.classList.toggle('dark', isDark);
+        localStorage.setItem('theme', theme);
+    }, [theme]);
+    
+    const handleConnect = async (clientId, apiKey, password) => {
+        setCredentials(clientId, apiKey);
+        if (password) {
+            await setPassword(password);
+        }
+    };
+    
+    const handleSaveRecipe = (recipe) => {
+        if (recipe.id) { // Existing recipe
+            updateAppData(d => ({ ...d, recipes: d.recipes.map(r => r.id === recipe.id ? recipe : r) }), {sync: true});
+        } else { // New recipe
+            updateAppData(d => ({ ...d, recipes: [{ ...recipe, id: uuidv4(), updated: Date.now() }, ...d.recipes] }), {sync: true});
+        }
+        setEditingRecipe(null);
+    };
+
+    const handleDeleteRecipe = async (recipeId) => {
+        if (confirm("Are you sure you want to delete this recipe? This cannot be undone.")) {
+            const recipeToDelete = appData.recipes.find(r => r.id === recipeId);
+            if (recipeToDelete && recipeToDelete.images) {
+                for (const img of recipeToDelete.images) {
+                    await deleteFile(img.id);
+                }
+            }
+            updateAppData(d => ({ ...d, recipes: d.recipes.filter(r => r.id !== recipeId) }), {sync: true});
+        }
+    };
+    
+    const filteredRecipes = useMemo(() => {
+        return appData.recipes
+            .filter(r => activeCategory === 'all' || r.category === activeCategory)
+            .filter(r => {
+                const query = searchQuery.toLowerCase();
+                return !query ||
+                    r.title.toLowerCase().includes(query) ||
+                    (r.ingredients && r.ingredients.toLowerCase().includes(query)) ||
+                    (r.notes && r.notes.toLowerCase().includes(query));
+            })
+            .sort((a, b) => b.updated - a.updated);
+    }, [appData.recipes, searchQuery, activeCategory]);
+
+    const statusIndicator = useMemo(() => {
+        switch (status) {
+            case 'syncing': return { color: 'bg-yellow-400 animate-pulse', text: 'Syncing...' };
+            case 'synced': return { color: 'bg-green-400', text: 'Synced' };
+            case 'offline': return { color: 'bg-gray-400', text: 'Offline' };
+            case 'error': return { color: 'bg-red-400', text: 'Error' };
+            default: return { color: 'bg-blue-400', text: 'Connecting...' };
+        }
+    }, [status]);
+    
+    // --- RENDER LOGIC ---
+    if (status === 'initializing') {
+        return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    }
+
+    if (status === 'locked') {
+        return <LockScreen onUnlock={unlock} error={error} />;
+    }
+
+    if (status === 'needs_credentials') {
+        return <DriveSetup onConnect={handleConnect} error={error} showToast={showToast} />;
+    }
+
+    return (
+        <div className="max-w-7xl mx-auto p-4">
+            {/* Header */}
+            <header className="flex items-center justify-between mb-4 gap-4">
+                <h1 className="text-2xl font-bold text-primary-600 dark:text-primary-400">Recipe Keeper</h1>
+                <div className="flex-grow max-w-lg relative">
+                    <SearchIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Search recipes..." 
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 rounded-full bg-white dark:bg-gray-800 border dark:border-gray-700 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                    />
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setEditingRecipe({ title: '', category: '', prep: '', ingredients: '', steps: '', notes: '', images: [] })} className="bg-primary-600 text-white p-2 rounded-full hover:bg-primary-700"><PlusIcon /></button>
+                    <button onClick={syncNow} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-gray-700 group relative">
+                        <div className={`w-3 h-3 rounded-full ${statusIndicator.color}`}></div>
+                        <span className="absolute top-full mt-2 -right-2 w-max bg-black text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{statusIndicator.text}</span>
+                    </button>
+                    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-gray-700">
+                        {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                    </button>
+                    <button onClick={() => setSettingsOpen(true)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-gray-700"><Cog6ToothIcon /></button>
+                    <button onClick={() => setHelpOpen(true)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-gray-700"><QuestionMarkCircleIcon /></button>
+                </div>
+            </header>
+            
+            {/* Category Filter */}
+            <div className="mb-6 flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+                 <button onClick={() => setActiveCategory('all')} className={`px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap ${activeCategory === 'all' ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-700'}`}>All</button>
+                 {appData.categories.map(cat => (
+                     <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className={`px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap ${activeCategory === cat.id ? 'bg-primary-600 text-white' : 'bg-white dark:bg-gray-700'}`}>{cat.name}</button>
+                 ))}
+            </div>
+
+            {/* Recipe Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {filteredRecipes.map(recipe => (
+                    <RecipeCard 
+                        key={recipe.id}
+                        recipe={recipe}
+                        category={appData.categories.find(c => c.id === recipe.category)}
+                        onEdit={() => setEditingRecipe(recipe)}
+                        onDelete={() => handleDeleteRecipe(recipe.id)}
+                        getImageUrl={getImageUrl}
+                    />
+                ))}
+            </div>
+            
+            {filteredRecipes.length === 0 && (
+                <div className="text-center py-16 text-slate-500">
+                    <p>No recipes found.</p>
+                    <p>Try changing your filter or search query.</p>
+                </div>
+            )}
+            
+            {/* Modals & Editor */}
+            {editingRecipe && (
+                <RecipeEditor 
+                    recipe={editingRecipe}
+                    categories={appData.categories}
+                    onSave={handleSaveRecipe}
+                    onCancel={() => setEditingRecipe(null)}
+                    uploadImage={uploadImage}
+                    deleteFile={deleteFile}
+                    showToast={showToast}
+                />
+            )}
+
+            <HelpModal isOpen={isHelpOpen} onClose={() => setHelpOpen(false)} />
+            <SettingsModal 
+                isOpen={isSettingsOpen} 
+                onClose={() => setSettingsOpen(false)}
+                appData={appData}
+                updateAppData={updateAppData}
+                changePassword={changePassword}
+                removePassword={removePassword}
+                resetApp={resetApp}
+            />
+
+            {activeToast && <Toast key={activeToast.id} {...activeToast} onDismiss={() => setActiveToast(null)} />}
+        </div>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+    </script>
+</body>
+</html>
