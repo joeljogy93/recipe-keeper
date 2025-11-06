@@ -2,148 +2,98 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipe Keeper</title>
   <meta name="theme-color" content="#ffffff" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://apis.google.com/js/api.js"></script>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://apis.google.com/js/api.js" defer></script>
 </head>
+
 <body>
-  <!-- Password Lock (local-only) -->
-  <div id="lock" class="lock hidden">
-    <div class="lock-box">
-      <h3 id="lockTitle">Unlock Recipe Keeper</h3>
-      <p class="muted small" id="lockHint">This protects only this device. Recipes live in your Google Drive.</p>
-      <input id="lockInput" type="password" placeholder="Enter password" />
-      <div class="actions">
-        <button id="unlockBtn" class="btn primary">Unlock</button>
-        <button id="setPassBtn" class="btn">Set/Change password</button>
-      </div>
-      <div id="lockMsg" class="muted small"></div>
+
+<!-- Password Lock (local-only) -->
+<div id="lock" class="lock hidden">
+  <div class="lock-box">
+    <h3 id="lockTitle">Unlock Recipe Keeper</h3>
+    <p class="muted small" id="lockHint">This protects only this device. Recipes live in your Google Drive.</p>
+    <input id="lockInput" type="password" placeholder="Enter password" />
+    <div class="actions">
+      <button id="unlockBtn" class="btn primary">Unlock</button>
+      <button id="setPassBtn" class="btn">Set/Change password</button>
     </div>
+    <div id="lockMsg" class="muted small"></div>
   </div>
+</div>
 
-  <header>
-    <h1>Recipe Keeper</h1>
-    <input id="q" type="search" placeholder="Search title, ingredients, notes" />
-    <div class="right">
-      <button id="addBtn" class="btn">+ New</button>
-      <span id="syncStatus" class="status off">Offline</span>
-      <label class="toggle"><input type="checkbox" id="themeToggle" /> <span class="muted">Dark</span></label>
+<!-- Main App -->
+<div id="app" class="hidden">
+
+  <h1>Recipe Keeper</h1>
+
+  <input id="search" placeholder="Search title, ingredients, note">
+
+  <button id="newBtn" class="btn primary small">+ New</button>
+  <label><input type="checkbox" id="offlineChk"> Offline</label>
+  <label><input type="checkbox" id="themeChk"> Dark</label>
+
+  <h3>Google Drive setup</h3>
+  <label>CLIENT_ID <input id="clientId" placeholder="your OAuth client id"></label>
+  <label>API_KEY <input id="apiKey" placeholder="your API key"></label>
+
+  <button id="connectBtn" class="btn small">Connect</button>
+  <button id="signOutBtn" class="btn small">Sign out</button>
+
+  <p class="muted small">
+    Add your site URL to OAuth “Authorized JavaScript origins”.
+  </p>
+
+  <pre>
+/RecipeKeeper/
+  ├─ recipes.json
+  └─ images/
+  </pre>
+
+  <p class="muted small">
+    Sync runs at Save and on app start.
+  </p>
+
+  <button id="catBtn" class="btn small">Manage categories</button>
+  <button id="settingsBtn" class="btn small">Settings</button>
+  <button id="exportBtn" class="btn small">Export</button>
+  <label class="btn small">Import <input type="file" id="importFile" hidden></label>
+
+  <p class="muted small">Private: cached locally + synced to your Google Drive.</p>
+
+  <h2>New recipe</h2>
+  <div id="editor"></div>
+</div>
+
+<!-- Dialogs -->
+<dialog id="settingsDlg">
+  <div class="dlg-h">Settings</div>
+  <div class="dlg-b">
+    <div class="muted small">Password (local-only)</div>
+    <label>New password</label>
+    <input id="newPass" type="password">
+    <div class="actions">
+      <button id="savePassBtn" class="btn primary small">Save</button>
+      <button id="closeSettings" class="btn small">Close</button>
     </div>
-  </header>
+    <div id="settingsMsg" class="muted small"></div>
+  </div>
+</dialog>
 
-  <main>
-    <!-- Drive Setup -->
-    <section id="driveSetupCard" class="card">
-      <h3>Google Drive setup</h3>
-      <div class="row">
-        <div class="card grow">
-          <label>CLIENT_ID</label>
-          <input id="clientId" placeholder="xxxxxxxx.apps.googleusercontent.com" />
-          <label>API_KEY</label>
-          <input id="apiKey" placeholder="AIza..." />
-          <div class="actions">
-            <button id="connectBtn" class="btn">Connect</button>
-            <button id="signOutBtn" class="btn">Sign out</button>
-          </div>
-          <div id="driveMsg" class="muted small"></div>
-          <div class="muted small">Add your site URL to OAuth “Authorized JavaScript origins”.</div>
-        </div>
-        <div class="card grow">
-<pre class="kbd">/RecipeKeeper/
-  ├── recipes.json
-  └── images/</pre>
-          <div class="muted small">Sync runs at Save and on app start.</div>
-        </div>
-      </div>
-    </section>
+<!-- SCRIPTS (fixed order + defer) -->
+<script src="password.js" defer></script>
+<script src="drive.js" defer></script>
+<script src="app.js" defer></script>
 
-    <!-- Toolbar -->
-    <section class="card">
-      <div class="wrap">
-        <div id="catBar" class="wrap"></div>
-        <div class="right wrap">
-          <button id="manageCatsBtn" class="btn">Manage categories</button>
-          <button id="settingsBtn" class="btn">Settings</button>
-          <button id="exportBtn" class="btn">Export</button>
-          <label for="importFile" class="btn">Import</label>
-          <input id="importFile" type="file" accept="application/json" class="hidden" />
-        </div>
-      </div>
-      <div class="muted small">Private: cached locally + synced to your Google Drive.</div>
-    </section>
+<!-- Global error logger -->
+<script>
+window.onerror = (msg, src, line, col, err) => {
+  alert("JS Error: " + msg + "\n" + src + ":" + line);
+};
+</script>
 
-    <!-- Editor -->
-    <section id="editor" class="card hidden">
-      <h2 id="formTitle" class="h2">New recipe</h2>
-      <div class="row">
-        <div class="card grow">
-          <label>Title</label><input id="title" />
-          <label>Category</label><select id="category"></select>
-          <label>Prep time</label><input id="prep" />
-          <label>Ingredients (one per line)</label><textarea id="ingredients"></textarea>
-          <label>Steps (one per line)</label><textarea id="steps"></textarea>
-          <label>Notes</label><textarea id="notes"></textarea>
-
-          <div class="actions">
-            <input id="imgInput" type="file" accept="image/*" class="hidden" />
-            <button id="uploadImgBtn" class="btn">Upload image</button>
-            <span id="uploadStatus" class="muted small"></span>
-          </div>
-
-          <label>Photo URL (optional)</label><input id="photo" />
-          <div class="actions">
-            <button id="cancelBtn" class="btn">Cancel</button>
-            <button id="saveBtn" class="btn primary">Save</button>
-          </div>
-        </div>
-
-        <div class="card grow">
-          <div class="muted">Preview</div>
-          <div id="preview"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- List -->
-    <section id="list" class="grid"></section>
-    <div class="footer">Tip: Add to Home Screen for app-like use.</div>
-  </main>
-
-  <!-- Category manager -->
-  <dialog id="catDlg">
-    <div class="dlg-h">Manage categories</div>
-    <div class="dlg-b">
-      <div class="wrap">
-        <input id="newCatName" placeholder="New category name" class="grow" />
-        <button id="addCatBtn" class="btn">Add</button>
-      </div>
-      <div id="catList" class="vpad"></div>
-      <div class="actions" style="justify-content:flex-end">
-        <button id="closeCatDlg" class="btn">Close</button>
-      </div>
-      <div class="muted small">Rename/delete only when unused by any recipe.</div>
-    </div>
-  </dialog>
-
-  <!-- Settings -->
-  <dialog id="settingsDlg">
-    <div class="dlg-h">Settings</div>
-    <div class="dlg-b">
-      <div class="muted small">Password is <b>local to this device</b> (not synced). Clear browser data to remove it.</div>
-      <label>New password</label>
-      <input id="newPass" type="password" placeholder="Enter new password" />
-      <div class="actions">
-        <button id="savePassBtn" class="btn primary">Save password</button>
-        <button id="closeSettings" class="btn">Close</button>
-      </div>
-      <div id="settingsMsg" class="muted small"></div>
-    </div>
-  </dialog>
-
-  <script src="password.js"></script>
-  <script src="drive.js"></script>
-  <script src="app.js"></script>
 </body>
 </html>
