@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipe Keeper</title>
   <meta name="theme-color" content="#ffffff" />
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
   <!-- Google API Loader -->
   <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 <body>
-  <!-- Password (local-only) -->
+  <!-- Lock (local-only) -->
   <div id="lock" class="lock">
     <div class="lock-box card">
       <h2 id="lockTitle">Unlock Recipe Keeper</h2>
@@ -24,6 +24,7 @@
     </div>
   </div>
 
+  <!-- Top bar -->
   <header class="topbar">
     <div class="brand">Recipe Keeper</div>
     <input id="q" type="search" placeholder="Search title, ingredients, notes" />
@@ -35,29 +36,22 @@
   </header>
 
   <main>
-    <!-- Drive Setup -->
+    <!-- Drive setup -->
     <section id="driveSetupCard" class="card">
-      <div class="row">
-        <div class="grow">
-          <h3>Google Drive setup</h3>
-          <label>CLIENT_ID</label>
-          <input id="clientId" placeholder="1234567890-xxxx.apps.googleusercontent.com" />
-          <label>API_KEY</label>
-          <input id="apiKey" placeholder="AIza..." />
-          <div class="actions">
-            <button id="connectBtn" class="btn primary">Connect</button>
-            <button id="signOutBtn" class="btn">Sign out</button>
-          </div>
-          <div id="driveMsg" class="muted small"></div>
-          <div class="muted small">Add your Netlify URL to OAuth “Authorized JavaScript origins”.</div>
-        </div>
-        <div class="grow">
-<pre class="kbd">/RecipeKeeper/
-  ├── recipes.json
-  └── images/</pre>
-          <div class="muted small">Sync runs at Save and on app start.</div>
-        </div>
+      <h3>Google Drive setup</h3>
+      <label>CLIENT_ID</label>
+      <input id="clientId" placeholder="1234567890-xxxx.apps.googleusercontent.com" />
+      <label>API_KEY</label>
+      <input id="apiKey" placeholder="AIza..." />
+      <div class="actions">
+        <button id="connectBtn" class="btn primary">Connect</button>
+        <button id="signOutBtn" class="btn">Sign out</button>
       </div>
+      <div id="driveMsg" class="muted small"></div>
+      <pre class="kbd">RecipeKeeper/
+  recipes/   (each recipe .json)
+  images/    (uploaded photos)
+</pre>
     </section>
 
     <!-- Toolbar -->
@@ -67,12 +61,9 @@
         <div class="right wrap">
           <button id="manageCatsBtn" class="btn">Manage categories</button>
           <button id="settingsBtn" class="btn">Settings</button>
-          <button id="exportBtn" class="btn">Export</button>
-          <label for="importFile" class="btn">Import</label>
-          <input id="importFile" type="file" accept="application/json" class="hidden" />
         </div>
       </div>
-      <div class="muted small">Private: cached locally + synced to your Google Drive.</div>
+      <div class="muted small">Private UI (local password). Data lives in your Google Drive.</div>
     </section>
 
     <!-- Editor -->
@@ -93,7 +84,6 @@
             <span id="uploadStatus" class="muted small"></span>
           </div>
 
-          <label>Photo URL (optional)</label><input id="photo" />
           <div class="actions">
             <button id="cancelBtn" class="btn">Cancel</button>
             <button id="saveBtn" class="btn primary">Save</button>
@@ -143,10 +133,10 @@
     </div>
   </dialog>
 
-  <!-- App script -->
-  <script src="app.js?v=3" defer></script>
+  <!-- App -->
+  <script src="app.js?v=4" defer></script>
 
-  <!-- Debug: show JS errors if any -->
+  <!-- Show JS errors -->
   <script>
     window.onerror = (m, s, l) => alert("JS Error → " + m + "\n" + (s||"") + ":" + (l||""));
   </script>
