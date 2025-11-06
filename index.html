@@ -1,21 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipe Keeper</title>
-  <meta name="theme-color" content="#ffffff"/>
-  <link rel="stylesheet" href="styles.css?v=5"/>
-  <!-- Google API Loader -->
-  <script src="https://apis.google.com/js/api.js" async defer></script>
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Google API loader -->
+  <script src="https://apis.google.com/js/api.js"></script>
 </head>
 <body>
-  <!-- Lock (local-only) -->
+  <!-- Password Lock (local-only) -->
   <div id="lock" class="lock">
-    <div class="lock-box card">
-      <h2 id="lockTitle">Unlock Recipe Keeper</h2>
-      <p class="muted small">This protects only this device. Data lives in your Google Drive.</p>
-      <input id="lockInput" type="password" placeholder="Enter password"/>
+    <div class="lock-box">
+      <h3 id="lockTitle">Unlock Recipe Keeper</h3>
+      <p class="muted small" id="lockHint">This protects only this device. Data lives in your Google Drive.</p>
+      <input id="lockInput" type="password" placeholder="Enter password" />
       <div class="actions">
         <button id="unlockBtn" class="btn primary">Unlock</button>
         <button id="setPassBtn" class="btn">Set/Change password</button>
@@ -24,123 +24,111 @@
     </div>
   </div>
 
-  <!-- Top bar -->
-  <header class="topbar">
-    <div class="brand">Recipe Keeper</div>
-    <input id="q" type="search" placeholder="Search title, ingredients, notes"/>
-    <div class="right">
-      <button id="addBtn" class="btn">+ New</button>
-      <span id="syncStatus" class="chip">Offline</span>
-      <label class="toggle"><input type="checkbox" id="themeToggle"/> <span>Dark</span></label>
-    </div>
-  </header>
-
-  <main>
-    <!-- Drive setup -->
-    <section id="driveSetupCard" class="card">
-      <h3>Google Drive setup</h3>
-      <label>CLIENT_ID</label>
-      <input id="clientId" placeholder="1234567890-xxxx.apps.googleusercontent.com"/>
-      <label>API_KEY</label>
-      <input id="apiKey" placeholder="AIza..."/>
-      <div class="actions">
-        <button id="connectBtn" class="btn primary">Connect</button>
-        <button id="signOutBtn" class="btn">Sign out</button>
-      </div>
-      <div id="driveMsg" class="muted small"></div>
-      <pre class="kbd">RecipeKeeper/
-  recipes/   (each recipe .json)
-  images/    (uploaded photos)</pre>
-    </section>
-
-    <!-- Toolbar -->
-    <section class="card">
-      <div class="wrap">
-        <div id="catBar" class="wrap"></div>
-        <div class="right wrap">
-          <button id="manageCatsBtn" class="btn">Manage categories</button>
-          <button id="settingsBtn" class="btn">Settings</button>
-          <button id="exportBtn" class="btn">Export</button>
-          <label for="importFile" class="btn">Import</label>
-          <input id="importFile" type="file" accept="application/json" class="hidden"/>
-        </div>
-      </div>
-      <div class="muted small">Private UI (local password). Data stays in your Google Drive.</div>
-    </section>
-
-    <!-- Editor -->
-    <section id="editor" class="card hidden">
-      <h2 id="formTitle" class="h2">New recipe</h2>
-      <div class="row">
-        <div class="grow">
-          <label>Title</label><input id="title"/>
-          <label>Category</label><select id="category"></select>
-          <label>Prep time</label><input id="prep"/>
-          <label>Ingredients (one per line)</label><textarea id="ingredients"></textarea>
-          <label>Steps (one per line)</label><textarea id="steps"></textarea>
-          <label>Notes</label><textarea id="notes"></textarea>
-
-          <div class="actions">
-            <input id="imgInput" type="file" accept="image/*" class="hidden"/>
-            <button id="uploadImgBtn" class="btn">Upload image</button>
-            <span id="uploadStatus" class="muted small"></span>
-          </div>
-
-          <div class="actions">
-            <button id="cancelBtn" class="btn">Cancel</button>
-            <button id="saveBtn" class="btn primary">Save</button>
-          </div>
-        </div>
-
-        <div class="grow">
-          <div class="muted">Preview</div>
-          <div id="preview"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- List -->
-    <section id="list" class="grid"></section>
-    <div class="footer">Tip: Add to Home Screen for app-like use.</div>
-  </main>
-
-  <!-- Category manager -->
-  <dialog id="catDlg">
-    <div class="dlg-h">Manage categories</div>
-    <div class="dlg-b">
-      <div class="wrap">
-        <input id="newCatName" placeholder="New category name" class="grow"/>
-        <button id="addCatBtn" class="btn">Add</button>
-      </div>
-      <div id="catList" class="vpad"></div>
-      <div class="actions end">
-        <button id="closeCatDlg" class="btn">Close</button>
-      </div>
-      <div class="muted small">Rename/delete only when unused by any recipe.</div>
-    </div>
-  </dialog>
-
-  <!-- Settings -->
-  <dialog id="settingsDlg">
-    <div class="dlg-h">Settings</div>
-    <div class="dlg-b">
-      <div class="muted small">Password is <b>local to this device</b> (not synced).</div>
-      <label>New password</label>
-      <input id="newPass" type="password" placeholder="Enter new password"/>
-      <div class="actions">
-        <button id="savePassBtn" class="btn primary">Save password</button>
-        <button id="closeSettings" class="btn">Close</button>
-      </div>
-      <div id="settingsMsg" class="muted small"></div>
-    </div>
-  </dialog>
-
   <!-- App -->
-  <script src="app.js?v=5" defer></script>
+  <div id="app" class="hidden">
+    <header class="bar">
+      <h1>Recipe Keeper</h1>
+      <div class="right">
+        <label class="switch"><input type="checkbox" id="darkToggle"><span>Dark</span></label>
+      </div>
+    </header>
 
-  <!-- Show JS errors (handy on mobile) -->
+    <section class="card">
+      <h3>Google Drive setup</h3>
+      <div class="row">
+        <label>CLIENT_ID</label>
+        <input id="clientId" placeholder="Your OAuth 2.0 Web Client ID" />
+      </div>
+      <div class="row">
+        <label>API_KEY</label>
+        <input id="apiKey" placeholder="Your API key" />
+      </div>
+      <div class="row">
+        <button id="connectBtn" class="btn primary">Connect</button>
+        <button id="signoutBtn" class="btn">Sign out</button>
+      </div>
+      <p class="muted small">
+        Add your site URL to OAuth “Authorized JavaScript origins”.<br/>
+        Folder structure:
+      </p>
+      <pre class="tree">/RecipeKeeper/
+  ├─ recipes.json
+  └─ images/</pre>
+      <p id="driveMsg" class="muted small"></p>
+    </section>
+
+    <section class="bar">
+      <input id="search" class="search" placeholder="Search title, ingredients, note" />
+      <button id="newBtn" class="btn">+ New</button>
+      <button id="manageBtn" class="btn">Manage categories</button>
+      <button id="settingsBtn" class="btn">Settings</button>
+    </section>
+
+    <section id="list" class="list"></section>
+
+    <!-- New / Edit dialog -->
+    <dialog id="editDlg">
+      <div class="dlg-h"><span id="dlgTitle">New recipe</span></div>
+      <div class="dlg-b">
+        <label>Title</label>
+        <input id="rTitle" />
+        <label>Category</label>
+        <select id="rCategory"></select>
+        <label>Ingredients (one per line)</label>
+        <textarea id="rIngr" rows="6"></textarea>
+        <label>Steps / Notes</label>
+        <textarea id="rNotes" rows="6"></textarea>
+        <label>Photo</label>
+        <input id="rImage" type="file" accept="image/*" />
+        <img id="rImagePreview" class="preview hidden" />
+        <div class="actions">
+          <button id="saveBtn" class="btn primary">Save</button>
+          <button id="deleteBtn" class="btn danger">Delete</button>
+          <button id="closeBtn" class="btn">Close</button>
+        </div>
+        <div id="editMsg" class="muted small"></div>
+      </div>
+    </dialog>
+
+    <!-- Categories dialog -->
+    <dialog id="catsDlg">
+      <div class="dlg-h">Categories</div>
+      <div class="dlg-b">
+        <ul id="catsList" class="chips"></ul>
+        <div class="row">
+          <input id="newCat" placeholder="New category name" />
+          <button id="addCatBtn" class="btn">Add</button>
+        </div>
+        <p class="muted small">Tap a chip to delete.</p>
+        <div class="actions">
+          <button id="closeCats" class="btn">Close</button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- Settings dialog -->
+    <dialog id="settingsDlg">
+      <div class="dlg-h">Settings</div>
+      <div class="dlg-b">
+        <div class="muted small">Password is <b>local to this device</b> (not synced).</div>
+        <label>New password</label>
+        <input id="newPass" type="password" placeholder="Enter new password" />
+        <div class="actions">
+          <button id="savePassBtn" class="btn primary">Save password</button>
+          <button id="closeSettings" class="btn">Close</button>
+        </div>
+        <div id="settingsMsg" class="muted small"></div>
+      </div>
+    </dialog>
+  </div>
+
+  <!-- App scripts (no modules) -->
+  <script src="drive.js" defer></script>
+  <script src="app.js" defer></script>
+
+  <!-- Tiny helper: surface JS errors on mobile -->
   <script>
-    window.onerror = (m, s, l) => alert("JS Error → " + m + "\n" + (s||"") + ":" + (l||""));
+    window.onerror = (m,s,l) => alert("JS Error → " + m + "\n" + s + ":" + l);
   </script>
 </body>
 </html>
