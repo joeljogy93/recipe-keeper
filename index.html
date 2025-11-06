@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Recipe Keeper</title>
-  <meta name="theme-color" content="#ffffff" />
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <meta name="theme-color" content="#ffffff"/>
+  <link rel="stylesheet" href="styles.css?v=5"/>
   <!-- Google API Loader -->
   <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
@@ -14,8 +14,8 @@
   <div id="lock" class="lock">
     <div class="lock-box card">
       <h2 id="lockTitle">Unlock Recipe Keeper</h2>
-      <p class="muted small">This protects only this device. Recipes live in your Google Drive.</p>
-      <input id="lockInput" type="password" placeholder="Enter password" />
+      <p class="muted small">This protects only this device. Data lives in your Google Drive.</p>
+      <input id="lockInput" type="password" placeholder="Enter password"/>
       <div class="actions">
         <button id="unlockBtn" class="btn primary">Unlock</button>
         <button id="setPassBtn" class="btn">Set/Change password</button>
@@ -27,11 +27,11 @@
   <!-- Top bar -->
   <header class="topbar">
     <div class="brand">Recipe Keeper</div>
-    <input id="q" type="search" placeholder="Search title, ingredients, notes" />
+    <input id="q" type="search" placeholder="Search title, ingredients, notes"/>
     <div class="right">
       <button id="addBtn" class="btn">+ New</button>
       <span id="syncStatus" class="chip">Offline</span>
-      <label class="toggle"><input type="checkbox" id="themeToggle" /> <span>Dark</span></label>
+      <label class="toggle"><input type="checkbox" id="themeToggle"/> <span>Dark</span></label>
     </div>
   </header>
 
@@ -40,9 +40,9 @@
     <section id="driveSetupCard" class="card">
       <h3>Google Drive setup</h3>
       <label>CLIENT_ID</label>
-      <input id="clientId" placeholder="1234567890-xxxx.apps.googleusercontent.com" />
+      <input id="clientId" placeholder="1234567890-xxxx.apps.googleusercontent.com"/>
       <label>API_KEY</label>
-      <input id="apiKey" placeholder="AIza..." />
+      <input id="apiKey" placeholder="AIza..."/>
       <div class="actions">
         <button id="connectBtn" class="btn primary">Connect</button>
         <button id="signOutBtn" class="btn">Sign out</button>
@@ -50,8 +50,7 @@
       <div id="driveMsg" class="muted small"></div>
       <pre class="kbd">RecipeKeeper/
   recipes/   (each recipe .json)
-  images/    (uploaded photos)
-</pre>
+  images/    (uploaded photos)</pre>
     </section>
 
     <!-- Toolbar -->
@@ -61,9 +60,12 @@
         <div class="right wrap">
           <button id="manageCatsBtn" class="btn">Manage categories</button>
           <button id="settingsBtn" class="btn">Settings</button>
+          <button id="exportBtn" class="btn">Export</button>
+          <label for="importFile" class="btn">Import</label>
+          <input id="importFile" type="file" accept="application/json" class="hidden"/>
         </div>
       </div>
-      <div class="muted small">Private UI (local password). Data lives in your Google Drive.</div>
+      <div class="muted small">Private UI (local password). Data stays in your Google Drive.</div>
     </section>
 
     <!-- Editor -->
@@ -71,15 +73,15 @@
       <h2 id="formTitle" class="h2">New recipe</h2>
       <div class="row">
         <div class="grow">
-          <label>Title</label><input id="title" />
+          <label>Title</label><input id="title"/>
           <label>Category</label><select id="category"></select>
-          <label>Prep time</label><input id="prep" />
+          <label>Prep time</label><input id="prep"/>
           <label>Ingredients (one per line)</label><textarea id="ingredients"></textarea>
           <label>Steps (one per line)</label><textarea id="steps"></textarea>
           <label>Notes</label><textarea id="notes"></textarea>
 
           <div class="actions">
-            <input id="imgInput" type="file" accept="image/*" class="hidden" />
+            <input id="imgInput" type="file" accept="image/*" class="hidden"/>
             <button id="uploadImgBtn" class="btn">Upload image</button>
             <span id="uploadStatus" class="muted small"></span>
           </div>
@@ -107,7 +109,7 @@
     <div class="dlg-h">Manage categories</div>
     <div class="dlg-b">
       <div class="wrap">
-        <input id="newCatName" placeholder="New category name" class="grow" />
+        <input id="newCatName" placeholder="New category name" class="grow"/>
         <button id="addCatBtn" class="btn">Add</button>
       </div>
       <div id="catList" class="vpad"></div>
@@ -124,7 +126,7 @@
     <div class="dlg-b">
       <div class="muted small">Password is <b>local to this device</b> (not synced).</div>
       <label>New password</label>
-      <input id="newPass" type="password" placeholder="Enter new password" />
+      <input id="newPass" type="password" placeholder="Enter new password"/>
       <div class="actions">
         <button id="savePassBtn" class="btn primary">Save password</button>
         <button id="closeSettings" class="btn">Close</button>
@@ -134,9 +136,9 @@
   </dialog>
 
   <!-- App -->
-  <script src="app.js?v=4" defer></script>
+  <script src="app.js?v=5" defer></script>
 
-  <!-- Show JS errors -->
+  <!-- Show JS errors (handy on mobile) -->
   <script>
     window.onerror = (m, s, l) => alert("JS Error → " + m + "\n" + (s||"") + ":" + (l||""));
   </script>
