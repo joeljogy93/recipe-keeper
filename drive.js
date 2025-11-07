@@ -1,168 +1,217 @@
-/* drive.js – Google Drive helpers (no modules) */
+/* drive.js — Drive sync (keys entered in page, nothing hard-coded) */
 
-// Public state bag for app.js to use
-window.DriveState = {
-  gapiLoaded: false,
-  authed: false,
-  folderId: null,          // RecipeKeeper
-  imagesId: null,          // RecipeKeeper/images
-  fileId: null,            // recipes.json
-  clientId: "",
-  apiKey: ""
-};
+const Drive = (() => {
+  // ---- state ----
+  let tokenClient = null;
+  let accessToken = null;
+  let gapiReady = false;
 
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const APP_FOLDER_NAME = 'RecipeKeeper';
-const RECIPES_FILE_NAME = 'recipes.json';
-const IMAGES_FOLDER_NAME = 'images';
+  let rootFolderId = null;      // /RecipeKeeper
+  let imagesFolderId = null;    // /RecipeKeeper/images
+  let recipesFileId = null;     // /RecipeKeeper/recipes.json
 
-// Load + init gapi with provided keys
-async function driveInit(clientId, apiKey) {
-  return new Promise((resolve, reject) => {
-    window.gapi.load('client:auth2', async () => {
-      try {
-        await gapi.client.init({
-          apiKey,
-          clientId,
-          discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-          scope: SCOPES
-        });
-        window.DriveState.gapiLoaded = true;
-        resolve();
-      } catch (e) {
-        reject(e);
-      }
+  const FOLDER_NAME = "RecipeKeeper";
+  const IMAGES_NAME = "images";
+  const RECIPES_NAME = "recipes.json";
+
+  // ---- helpers ----
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
+  const filesOrEmpty = (res) => (res && res.result && res.result.files) ? res.result.files : [];
+
+  async function ensureGapiLoaded() {
+    if (gapiReady) return;
+    await new Promise(res => gapi.load("client", res));
+    gapiReady = true;
+  }
+
+  function needToken() {
+    if (!accessToken) throw new Error("Not signed in");
+  }
+
+  // ---- public api ----
+  async function init({ clientId, apiKey }) {
+    await ensureGapiLoaded();
+    await gapi.client.init({
+      apiKey,
+      discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
     });
-  });
-}
 
-async function driveSignIn() {
-  await gapi.auth2.getAuthInstance().signIn();
-  window.DriveState.authed = true;
-}
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: "https://www.googleapis.com/auth/drive.file",
+      callback: (resp) => {
+        accessToken = resp.access_token;
+        // Also set token for gapi client
+        gapi.client.setToken({ access_token: accessToken });
+      },
+    });
+  }
 
-async function driveSignOut() {
-  await gapi.auth2.getAuthInstance().signOut();
-  window.DriveState.authed = false;
-}
+  async function signIn() {
+    if (!tokenClient) throw new Error("Init not called");
+    await new Promise((resolve, reject) => {
+      tokenClient.callback = (resp) => {
+        if (resp.error) reject(resp);
+        else {
+          accessToken = resp.access_token;
+          gapi.client.setToken({ access_token: accessToken });
+          resolve();
+        }
+      };
+      tokenClient.requestAccessToken({ prompt: "consent" });
+    });
+  }
 
-// Ensure folder / file structure exists
-async function ensureStructure() {
-  const folderId = await ensureFolder(APP_FOLDER_NAME, null);             // /RecipeKeeper
-  const imagesId = await ensureFolder(IMAGES_FOLDER_NAME, folderId);      // /RecipeKeeper/images
-  const fileId   = await ensureFile(RECIPES_FILE_NAME, folderId);         // /RecipeKeeper/recipes.json
-  Object.assign(DriveState, { folderId, imagesId, fileId });
-}
-
-// Find or create folder with name under parentId (or My Drive if null)
-async function ensureFolder(name, parentId) {
-  const q = [
-    "mimeType = 'application/vnd.google-apps.folder'",
-    `name = '${name.replace(/'/g,"\\'")}'`,
-    "trashed = false",
-    parentId ? `'${parentId}' in parents` : "not 'appDataFolder' in parents"
-  ].join(' and ');
-  let res = await gapi.client.drive.files.list({ q, fields: 'files(id,name)' });
-  if (res.result.files && res.result.files.length) return res.result.files[0].id;
-
-  // Create
-  res = await gapi.client.drive.files.create({
-    fields: 'id',
-    resource: {
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: parentId ? [parentId] : undefined
+  function signOut() {
+    if (accessToken) {
+      google.accounts.oauth2.revoke(accessToken);
+      accessToken = null;
+      gapi.client.setToken(null);
     }
-  });
-  return res.result.id;
-}
+  }
 
-// Find or create text file
-async function ensureFile(name, parentId) {
-  const q = [
-    "mimeType != 'application/vnd.google-apps.folder'",
-    `name = '${name.replace(/'/g,"\\'")}'`,
-    `'${parentId}' in parents`,
-    "trashed = false"
-  ].join(' and ');
-  let res = await gapi.client.drive.files.list({ q, fields: 'files(id,name)' });
-  if (res.result.files && res.result.files.length) return res.result.files[0].id;
+  // ---- structure ----
+  async function ensureStructure() {
+    needToken();
 
-  // Create an empty recipes.json
-  const fileRes = await gapi.client.drive.files.create({
-    fields: 'id',
-    resource: { name, parents: [parentId], mimeType: 'application/json' }
-  });
-  const id = fileRes.result.id;
-  await uploadString(id, JSON.stringify({ recipes: [], categories: [
-    "Kerala Non veg","Kerala veg","Dessert","Cakes","Filling","Cookies",
-    "Without egg dessert","Without egg cakes","Without egg cookies"
-  ] }, null, 2));
-  return id;
-}
+    // 1) /RecipeKeeper
+    let res = await gapi.client.drive.files.list({
+      q: "mimeType='application/vnd.google-apps.folder' and name='" + FOLDER_NAME + "' and trashed=false",
+      fields: "files(id,name)"
+    });
+    const roots = filesOrEmpty(res);
+    if (roots.length) {
+      rootFolderId = roots[0].id;
+    } else {
+      res = await gapi.client.drive.files.create({
+        resource: { name: FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" },
+        fields: "id"
+      });
+      rootFolderId = res.result.id;
+    }
 
-// Download recipes.json → parsed object
-async function downloadRecipes() {
-  const res = await gapi.client.drive.files.get({
-    fileId: DriveState.fileId,
-    alt: 'media'
-  });
-  const text = res.body || res.result; // gapi varies by platform
-  try { return JSON.parse(text); } catch { return { recipes: [], categories: [] }; }
-}
+    // 2) /RecipeKeeper/images
+    res = await gapi.client.drive.files.list({
+      q:
+        "mimeType='application/vnd.google-apps.folder' and name='" + IMAGES_NAME + "' and trashed=false and '" +
+        rootFolderId + "' in parents",
+      fields: "files(id,name)"
+    });
+    const imgs = filesOrEmpty(res);
+    if (imgs.length) {
+      imagesFolderId = imgs[0].id;
+    } else {
+      res = await gapi.client.drive.files.create({
+        resource: { name: IMAGES_NAME, parents: [rootFolderId], mimeType: "application/vnd.google-apps.folder" },
+        fields: "id"
+      });
+      imagesFolderId = res.result.id;
+    }
 
-// Upload full JSON back
-async function uploadRecipes(dataObj) {
-  return uploadString(DriveState.fileId, JSON.stringify(dataObj, null, 2));
-}
+    // 3) /RecipeKeeper/recipes.json (create empty if missing)
+    res = await gapi.client.drive.files.list({
+      q: "name='" + RECIPES_NAME + "' and trashed=false and '" + rootFolderId + "' in parents",
+      fields: "files(id,name)"
+    });
+    const recs = filesOrEmpty(res);
+    if (recs.length) {
+      recipesFileId = recs[0].id;
+    } else {
+      const blob = new Blob([JSON.stringify({ categories: [], recipes: [] }, null, 2)], {
+        type: "application/json",
+      });
+      // Create file
+      const createRes = await uploadBlobMultipart(blob, {
+        name: RECIPES_NAME,
+        mimeType: "application/json",
+        parents: [rootFolderId],
+      });
+      recipesFileId = createRes.id;
+    }
+  }
 
-// Helper: upload string content to an existing Drive file
-async function uploadString(fileId, str) {
-  const body = new Blob([str], { type: 'application/json' });
-  return gapi.client.request({
-    path: `/upload/drive/v3/files/${fileId}`,
-    method: 'PATCH',
-    params: { uploadType: 'media' },
-    body
-  });
-}
+  // ---- JSON I/O ----
+  async function loadJSON() {
+    needToken();
+    if (!recipesFileId) await ensureStructure();
 
-// Upload image to /images and return webContentLink
-async function uploadImage(file) {
-  // Create metadata (in images folder)
-  const meta = {
-    name: file.name || `img_${Date.now()}.jpg`,
-    parents: [DriveState.imagesId]
+    // alt=media returns the file content
+    const res = await gapi.client.drive.files.get({ fileId: recipesFileId, alt: "media" });
+    return res.result || { categories: [], recipes: [] };
+  }
+
+  async function saveJSON(obj) {
+    needToken();
+    if (!recipesFileId) await ensureStructure();
+
+    const body = JSON.stringify(obj, null, 2);
+    // Update file content
+    await gapi.client.request({
+      path: "/upload/drive/v3/files/" + recipesFileId,
+      method: "PATCH",
+      params: { uploadType: "media" },
+      body,
+    });
+  }
+
+  // ---- Images ----
+  async function uploadImage(file) {
+    needToken();
+    if (!imagesFolderId) await ensureStructure();
+
+    // Upload multipart (metadata + file)
+    const meta = { name: file.name || ("img_" + Date.now()), parents: [imagesFolderId] };
+    const up = await uploadFileMultipart(file, meta);
+
+    // Make linkable (anyone with link) – allowed for files we created with drive.file scope
+    try {
+      await gapi.client.drive.permissions.create({
+        fileId: up.id,
+        resource: { role: "reader", type: "anyone" }
+      });
+    } catch (_) { /* ignore if fails */ }
+
+    // Public-ish URL (works after permission)
+    const url = "https://drive.google.com/uc?id=" + up.id;
+    return { id: up.id, url };
+  }
+
+  // ---- low-level upload helpers ----
+  async function uploadBlobMultipart(blob, metadata) {
+    // Build multipart/related body manually with fetch (simpler than gapi upload helpers)
+    const boundary = "-------rk" + Math.random().toString(36).slice(2);
+    const metaPart = JSON.stringify(metadata);
+    const body = new Blob([
+      `--${boundary}\r\n`,
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+      metaPart + '\r\n',
+      `--${boundary}\r\n`,
+      'Content-Type: ' + (metadata.mimeType || 'application/octet-stream') + '\r\n\r\n',
+      blob,
+      '\r\n--' + boundary + '--'
+    ], { type: 'multipart/related; boundary=' + boundary });
+
+    const resp = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + accessToken },
+      body
+    });
+    if (!resp.ok) throw new Error("Image create failed");
+    return await resp.json(); // { id }
+  }
+
+  async function uploadFileMultipart(file, metadata) {
+    return uploadBlobMultipart(file, { ...metadata, mimeType: file.type || "application/octet-stream" });
+  }
+
+  // ---- public surface ----
+  return {
+    init,
+    signIn,
+    signOut,
+    ensureStructure,
+    loadJSON,
+    saveJSON,
+    uploadImage
   };
-
-  // Multipart upload
-  const boundary = '-------314159265358979323846';
-  const delimiter = "\r\n--" + boundary + "\r\n";
-  const closeDelim = "\r\n--" + boundary + "--";
-
-  const reader = await file.arrayBuffer();
-  const base64Data = btoa(String.fromCharCode(...new Uint8Array(reader)));
-  const contentType = file.type || 'image/jpeg';
-
-  const multipartRequestBody =
-    delimiter + 'Content-Type: application/json\r\n\r\n' +
-    JSON.stringify(meta) +
-    delimiter + 'Content-Type: ' + contentType + '\r\n' +
-    'Content-Transfer-Encoding: base64\r\n\r\n' +
-    base64Data + closeDelim;
-
-  const res = await gapi.client.request({
-    path: '/upload/drive/v3/files',
-    method: 'POST',
-    params: { uploadType: 'multipart', fields: 'id,webContentLink' },
-    headers: { 'Content-Type': 'multipart/related; boundary="' + boundary + '"' },
-    body: multipartRequestBody
-  });
-  return res.result.webContentLink || "";
-}
-
-// Export small API for app.js
-window.DriveAPI = {
-  driveInit, driveSignIn, driveSignOut, ensureStructure,
-  downloadRecipes, uploadRecipes, uploadImage
-};
+})();
