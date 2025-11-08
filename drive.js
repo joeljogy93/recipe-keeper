@@ -1,5 +1,14 @@
-/* drive.js — Google Drive sync (keys entered in page, nothing hard-coded) */
+// ✅ Ensure Google API is fully loaded before anything runs
+function waitForGapiReady() {
+  if (typeof gapi === "undefined" || !gapi.client) {
+    console.log("⏳ Waiting for Google API...");
+    return setTimeout(waitForGapiReady, 400);
+  }
+  console.log("✅ Google API ready");
+}
+waitForGapiReady();
 
+/* drive.js — Google Drive sync (keys entered in page, nothing hard-coded) */
 const Drive = (() => {
   let tokenClient = null;
   let accessToken = null;
@@ -36,7 +45,7 @@ const Drive = (() => {
       discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
     });
 
-    // ✅ FIX: load Drive API properly
+    // ✅ Load Drive API properly
     await gapi.client.load("drive", "v3");
 
     tokenClient = google.accounts.oauth2.initTokenClient({
