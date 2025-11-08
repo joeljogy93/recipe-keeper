@@ -1,14 +1,8 @@
-// ✅ Ensure Google API is fully loaded before anything runs
-function waitForGapiReady() {
-  if (typeof gapi === "undefined" || !gapi.client) {
-    console.log("⏳ Waiting for Google API...");
-    return setTimeout(waitForGapiReady, 400);
-  }
-  console.log("✅ Google API ready");
+// Wait for Google API to be ready
+if (window.gapiReady) {
+  await window.gapiReady;
 }
-waitForGapiReady();
 
-/* drive.js — Google Drive sync (keys entered in page, nothing hard-coded) */
 const Drive = (() => {
   let tokenClient = null;
   let accessToken = null;
@@ -45,7 +39,6 @@ const Drive = (() => {
       discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
     });
 
-    // ✅ Load Drive API properly
     await gapi.client.load("drive", "v3");
 
     tokenClient = google.accounts.oauth2.initTokenClient({
@@ -86,7 +79,7 @@ const Drive = (() => {
   async function ensureStructure() {
     needToken();
 
-    // 1) /RecipeKeeper folder
+    // 1) /RecipeKeeper
     let res = await gapi.client.drive.files.list({
       q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
       fields: "files(id,name)"
@@ -118,7 +111,7 @@ const Drive = (() => {
       imagesFolderId = res.result.id;
     }
 
-    // 3) /RecipeKeeper/recipes.json
+    // 3) recipes.json
     res = await gapi.client.drive.files.list({
       q: `name='${RECIPES_NAME}' and trashed=false and '${rootFolderId}' in parents`,
       fields: "files(id,name)"
