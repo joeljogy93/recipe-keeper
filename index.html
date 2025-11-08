@@ -12,6 +12,12 @@
 
   <!-- Styles -->
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    .status { font-size:12px; color:#666; margin-left:8px }
+    .muted { color:#777 }
+    .hidden { display:none }
+    .btn[disabled] { opacity:.6; pointer-events:none }
+  </style>
 </head>
 
 <body>
@@ -71,9 +77,9 @@
         </div>
       </div>
       <div class="row">
-        <button id="connectBtn" class="btn primary">Connect</button>
+        <button id="connectBtn" class="btn primary" disabled>Connect</button>
         <button id="signOutBtn" class="btn">Sign out</button>
-        <span id="driveStatus" class="muted small"></span>
+        <span id="driveStatus" class="status">Loading Google API…</span>
       </div>
       <pre class="muted small">/RecipeKeeper/
   ├─ recipes.json
@@ -91,12 +97,13 @@
         <button id="manageBtn" class="btn">Manage categories</button>
         <button id="exportBtn" class="btn">Export</button>
         <label class="btn file">
-          <input id="importFile" type="file" accept="application/json" /> Import
+          <input id="importFile" type="file" accept="application/json" />
+          Import
         </label>
       </div>
     </section>
 
-    <!-- Recipe dialog -->
+    <!-- Recipe form -->
     <dialog id="recipeDlg">
       <div class="dlg-h" id="dlgTitle">New recipe</div>
       <div class="dlg-b">
@@ -118,35 +125,23 @@
       </div>
     </dialog>
 
-    <!-- Recipe list -->
+    <!-- List -->
     <section id="list" class="list card"></section>
   </main>
 
-  <!-- GOOGLE SCRIPTS -->
+  <!-- Google libs -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
 
-  <!-- WAIT FOR GOOGLE API -->
-  <script>
-    window.gapiReady = new Promise((resolve) => {
-      function check() {
-        if (typeof gapi !== "undefined" && gapi.client) resolve();
-        else setTimeout(check, 300);
-      }
-      check();
-    });
-  </script>
-
-  <!-- APP SCRIPTS -->
+  <!-- App scripts -->
   <script src="drive.js" defer></script>
   <script src="app.js" defer></script>
 
-  <!-- REGISTER PWA -->
+  <!-- PWA SW -->
   <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js");
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
     }
   </script>
-
 </body>
 </html>
