@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recipe Keeper</title>
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#f5f5f4">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'base': 'rgb(var(--color-base) / <alpha-value>)',
+              'surface': 'rgb(var(--color-surface) / <alpha-value>)',
+              'on-surface': 'rgb(var(--color-on-surface) / <alpha-value>)',
+              'primary': 'rgb(var(--color-primary) / <alpha-value>)',
+              'on-primary': 'rgb(var(--color-on-primary) / <alpha-value>)',
+              'secondary': 'rgb(var(--color-secondary) / <alpha-value>)',
+            },
+          },
+        },
+      }
+    </script>
+     <style>
+      :root {
+        --color-base: 245 245 244; /* stone-100 */
+        --color-surface: 255 255 255; /* white */
+        --color-on-surface: 28 25 23; /* stone-900 */
+        --color-primary: 120 113 108; /* stone-500 */
+        --color-on-primary: 255 255 255; /* white */
+        --color-secondary: 168 162 158; /* stone-400 */
+      }
+      .dark {
+        --color-base: 30 41 59; /* slate-800 */
+        --color-surface: 51 65 85; /* slate-700 */
+        --color-on-surface: 226 232 240; /* slate-200 */
+        --color-primary: 168 162 158; /* stone-400 */
+        --color-on-primary: 15 23 42; /* slate-900 */
+        --color-secondary: 100 116 139; /* slate-500 */
+      }
+      body {
+        background-color: rgb(var(--color-base));
+        color: rgb(var(--color-on-surface));
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script src="./index.tsx" type="module"></script>
+    <script async defer src="https://apis.google.com/js/api.js"></script>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
+  </body>
+</html>
