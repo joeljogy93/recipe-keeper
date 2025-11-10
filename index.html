@@ -1,147 +1,67 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Recipe Keeper</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#ffffff" />
-  <link rel="icon" href="icon-192.png" />
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles.css" />
-  <style>
-    .status { font-size:12px; color:#666; margin-left:8px }
-    .muted { color:#777 }
-    .hidden { display:none }
-    .btn[disabled] { opacity:.6; pointer-events:none }
-  </style>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recipe Keeper</title>
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#f5f5f4">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'base': 'rgb(var(--color-base) / <alpha-value>)',
+              'surface': 'rgb(var(--color-surface) / <alpha-value>)',
+              'on-surface': 'rgb(var(--color-on-surface) / <alpha-value>)',
+              'primary': 'rgb(var(--color-primary) / <alpha-value>)',
+              'on-primary': 'rgb(var(--color-on-primary) / <alpha-value>)',
+              'secondary': 'rgb(var(--color-secondary) / <alpha-value>)',
+            },
+          },
+        },
+      }
+    </script>
+     <style>
+      :root {
+        --color-base: 245 245 244; /* stone-100 */
+        --color-surface: 255 255 255; /* white */
+        --color-on-surface: 28 25 23; /* stone-900 */
+        --color-primary: 120 113 108; /* stone-500 */
+        --color-on-primary: 255 255 255; /* white */
+        --color-secondary: 168 162 158; /* stone-400 */
+      }
+      .dark {
+        --color-base: 30 41 59; /* slate-800 */
+        --color-surface: 51 65 85; /* slate-700 */
+        --color-on-surface: 226 232 240; /* slate-200 */
+        --color-primary: 168 162 158; /* stone-400 */
+        --color-on-primary: 15 23 42; /* slate-900 */
+        --color-secondary: 100 116 139; /* slate-500 */
+      }
+      body {
+        background-color: rgb(var(--color-base));
+        color: rgb(var(--color-on-surface));
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0"
+  }
+}
+</script>
 </head>
-
-<body>
-
-  <!-- Lock (device-only) -->
-  <section id="lock" class="card">
-    <h2>Unlock Recipe Keeper</h2>
-    <p class="muted small">This protects only this device. Data lives in your Google Drive.</p>
-    <div class="row">
-      <input id="lockInput" type="password" placeholder="Enter password" autocomplete="current-password" />
-    </div>
-    <div class="row">
-      <button id="unlockBtn" class="btn primary">Unlock</button>
-      <button id="setPassBtn" class="btn">Set/Change password</button>
-    </div>
-    <div id="lockMsg" class="muted small"></div>
-  </section>
-
-  <!-- Settings -->
-  <dialog id="settingsDlg">
-    <div class="dlg-h">Settings</div>
-    <div class="dlg-b">
-      <div class="muted small">Password is <b>local to this device</b> (not synced).</div>
-      <label>New password</label>
-      <input id="newPass" type="password" placeholder="Enter new password" autocomplete="new-password" />
-      <div class="actions">
-        <button id="savePassBtn" class="btn primary">Save password</button>
-        <button id="closeSettings" class="btn">Close</button>
-      </div>
-      <div id="settingsMsg" class="muted small"></div>
-    </div>
-  </dialog>
-
-  <!-- App -->
-  <main id="app" class="hidden">
-    <header class="bar">
-      <div class="left"><h1>Recipe Keeper</h1></div>
-      <div class="right">
-        <label class="switch">
-          <input id="themeToggle" type="checkbox" />
-          <span>Dark</span>
-        </label>
-      </div>
-    </header>
-
-    <!-- Drive connect -->
-    <section class="card">
-      <h3>Google Drive setup</h3>
-      <div class="grid2">
-        <div>
-          <label>CLIENT_ID</label>
-          <input id="clientId" placeholder="xxxx.apps.googleusercontent.com" />
-        </div>
-        <div>
-          <label>API_KEY</label>
-          <input id="apiKey" placeholder="AIza..." />
-        </div>
-      </div>
-      <div class="row">
-        <button id="connectBtn" class="btn primary" disabled>Connect</button>
-        <button id="signOutBtn" class="btn">Sign out</button>
-        <span id="driveStatus" class="status">Loading Google API…</span>
-      </div>
-      <pre class="muted small">/RecipeKeeper/
-  ├─ recipes.json
-  └─ images/</pre>
-    </section>
-
-    <!-- Toolbar -->
-    <section class="card">
-      <div class="grid2">
-        <input id="search" placeholder="Search title, ingredient, note" />
-        <select id="categoryFilter"><option value="All">All categories</option></select>
-      </div>
-      <div class="row">
-        <button id="newBtn" class="btn primary">+ New</button>
-        <button id="manageBtn" class="btn">Manage categories</button>
-        <button id="exportBtn" class="btn">Export</button>
-        <label class="btn file">
-          <input id="importFile" type="file" accept="application/json" />
-          Import
-        </label>
-      </div>
-    </section>
-
-    <!-- Recipe form -->
-    <dialog id="recipeDlg">
-      <div class="dlg-h" id="dlgTitle">New recipe</div>
-      <div class="dlg-b">
-        <label>Title</label>
-        <input id="rTitle" />
-        <label>Category</label>
-        <select id="rCat"></select>
-        <label>Ingredients (one per line)</label>
-        <textarea id="rIngr" rows="6"></textarea>
-        <label>Steps / Notes</label>
-        <textarea id="rNotes" rows="6"></textarea>
-        <label>Photo</label>
-        <input id="rImage" type="file" accept="image/*" />
-        <div class="actions">
-          <button id="saveRecipeBtn" class="btn primary">Save</button>
-          <button id="closeRecipeBtn" class="btn">Close</button>
-        </div>
-        <div id="recipeMsg" class="muted small"></div>
-      </div>
-    </dialog>
-
-    <!-- List -->
-    <section id="list" class="list card"></section>
-  </main>
-
-  <!-- Google libs -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="https://apis.google.com/js/api.js" async defer></script>
-
-  <!-- App scripts -->
-  <script src="drive.js" defer></script>
-  <script src="app.js" defer></script>
-
-  <!-- PWA SW -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
-    }
-  </script>
-</body>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script src="./index.tsx" type="module"></script>
+    <script async defer src="https://apis.google.com/js/api.js"></script>
+    <script async defer src="https://accounts.google.com/gsi/client"></script>
+  </body>
 </html>
